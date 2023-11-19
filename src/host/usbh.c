@@ -164,6 +164,17 @@ static usbh_class_driver_t const usbh_class_drivers[] =
       .close      = hub_close
     },
   #endif
+#if CFG_TUH_BTH
+  {
+    DRIVER_NAME("BTH")
+    .init       = bthh_init,
+    .open       = bthh_open,
+    .set_config = bthh_set_config,
+    .xfer_cb    = bthh_xfer_cb,
+    .close      = bthh_close
+  },
+#endif
+
 
   #if CFG_TUH_VENDOR
     {

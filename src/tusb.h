@@ -57,9 +57,13 @@
     #include "class/msc/msc_host.h"
   #endif
 
-  #if CFG_TUH_CDC
-    #include "class/cdc/cdc_host.h"
-  #endif
+#if CFG_TUH_CDC
+  #include "class/cdc/cdc_host.h"
+#endif
+
+#if CFG_TUH_BTH
+  #include "class/bth/bth_host.h"
+#endif
 
   #if CFG_TUH_VENDOR
     #include "class/vendor/vendor_host.h"
