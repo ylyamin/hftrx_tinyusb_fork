@@ -52,8 +52,8 @@
                                          ((FRAMELIST_SIZE_BIT_VALUE >> 2) << EHCI_USBCMD_CHIPIDEA_FRAMELIST_SIZE_MSB_SHIFT))
 #else
   // STD EHCI: 256 elements
-  #define FRAMELIST_SIZE_BIT_VALUE      2u
-  #define FRAMELIST_SIZE_USBCMD_VALUE   ((FRAMELIST_SIZE_BIT_VALUE &  3) << EHCI_USBCMD_POS_FRAMELIST_SIZE)
+  #define FRAMELIST_SIZE_BIT_VALUE      0u //2u
+  #define FRAMELIST_SIZE_USBCMD_VALUE   ((FRAMELIST_SIZE_BIT_VALUE &  3) << EHCI_USBCMD_FRAMELIST_SIZE_SHIFT)
 #endif
 
 #define FRAMELIST_SIZE                  (1024 >> FRAMELIST_SIZE_BIT_VALUE)
@@ -230,6 +230,7 @@ bool hcd_port_connect_status(uint8_t rhport)
 tusb_speed_t hcd_port_speed_get(uint8_t rhport)
 {
   (void) rhport;
+  return TUSB_SPEED_HIGH;
   return (tusb_speed_t) ehci_data.regs->portsc_bm.nxp_port_speed; // NXP specific port speed
 }
 
@@ -343,6 +344,7 @@ bool ehci_init(uint8_t rhport, uint32_t capability_reg, uint32_t operatial_reg)
                    FRAMELIST_SIZE_USBCMD_VALUE;
 
   //------------- ConfigFlag Register (skip) -------------//
+  regs->config_flag = 1;
 
   // enable port power bit in portsc. The function of this bit depends on the value of the Port
   // Power Control (PPC) field in the HCSPARAMS register.
@@ -691,9 +693,9 @@ void hcd_int_handler(uint8_t rhport, bool in_isr) {
   if (usb_int) {
     proccess_async_xfer_isr(list_get_async_head(rhport));
 
-    for ( uint32_t i = 1; i <= FRAMELIST_SIZE; i *= 2 ) {
-      process_period_xfer_isr(rhport, i);
-    }
+//    for ( uint32_t i = 1; i <= FRAMELIST_SIZE; i *= 2 ) {
+//      process_period_xfer_isr(rhport, i);
+//    }
 
     regs->status = usb_int; // Acknowledge
   }
