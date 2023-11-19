@@ -234,8 +234,11 @@ bool hcd_port_connect_status(uint8_t rhport)
 tusb_speed_t hcd_port_speed_get(uint8_t rhport)
 {
   (void) rhport;
-  return TUSB_SPEED_HIGH;
+#if (CFG_TUSB_MCU == OPT_MCU_F1C100S)
+  return TUSB_SPEED_HIGH;	// STD EHCI: HS only
+#else
   return (tusb_speed_t) ehci_data.regs->portsc_bm.nxp_port_speed; // NXP specific port speed
+#endif
 }
 
 // Close all opened endpoint belong to this device
