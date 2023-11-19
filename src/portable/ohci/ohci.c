@@ -142,6 +142,11 @@ enum {
   PID_FROM_TD = 0,
 };
 
+// weak dcache for non-cacheable MCU
+TU_ATTR_WEAK bool hcd_dcache_clean(void const* addr, uint32_t data_size) { (void) addr; (void) data_size; return true; }
+TU_ATTR_WEAK bool hcd_dcache_invalidate(void const* addr, uint32_t data_size) { (void) addr; (void) data_size; return true; }
+TU_ATTR_WEAK bool hcd_dcache_clean_invalidate(void const* addr, uint32_t data_size) { (void) addr; (void) data_size; return true; }
+
 //--------------------------------------------------------------------+
 // INTERNAL OBJECT & FUNCTION DECLARATION
 //--------------------------------------------------------------------+
@@ -157,6 +162,12 @@ static ohci_ed_t * const p_ed_head[] =
 
 static void ed_list_insert(ohci_ed_t * p_pre, ohci_ed_t * p_ed);
 static void ed_list_remove_by_addr(ohci_ed_t * p_head, uint8_t dev_addr);
+
+static void ohci_data_clean_invalidate(void)
+{
+	hcd_dcache_clean_invalidate(& ohci_data, sizeof ohci_data);
+	hcd_dcache_clean_invalidate(& p_ed_head, sizeof p_ed_head);
+}
 
 //--------------------------------------------------------------------+
 // USBH-HCD API
@@ -244,6 +255,7 @@ bool hcd_init(uint8_t rhport)
   osal_task_delay(OHCI_REG->rh_descriptorA_bit.power_on_to_good_time * 2); // Wait POTG after power up
 #endif
 
+  ohci_data_clean_invalidate();
   return true;
 }
 
@@ -301,6 +313,7 @@ void hcd_device_close(uint8_t rhport, uint8_t dev_addr)
 
     // TODO remove ISO
   }
+  ohci_data_clean_invalidate();
 }
 
 //--------------------------------------------------------------------+
@@ -445,6 +458,7 @@ static void td_insert_to_ed(ohci_ed_t* p_ed, ohci_gtd_t * p_gtd)
   { // TODO currently only support queue up to 2 TD each endpoint at a time
     ((ohci_gtd_t*) tu_align16((uint32_t)_virt_addr((void *)p_ed->td_head.address)))->next = (uint32_t) _phys_addr(p_gtd);
   }
+  ohci_data_clean_invalidate();
 }
 
 //--------------------------------------------------------------------+
@@ -477,22 +491,25 @@ bool hcd_edpt_open(uint8_t rhport, uint8_t dev_addr, tusb_desc_endpoint_t const 
   if ( dev_addr == 0 )
   {
     p_ed->skip = 0; // only need to clear skip bit
+    ohci_data_clean_invalidate();
     return true;
   }
 
   ed_list_insert( p_ed_head[ep_desc->bmAttributes.xfer], p_ed );
 
+  ohci_data_clean_invalidate();
   return true;
 }
 
 bool hcd_setup_send(uint8_t rhport, uint8_t dev_addr, uint8_t const setup_packet[8])
 {
   (void) rhport;
+  hcd_dcache_clean(setup_packet, 8);
 
   ohci_ed_t* ed   = &ohci_data.control[dev_addr].ed;
   ohci_gtd_t *qtd = &ohci_data.control[dev_addr].gtd;
 
-  gtd_init(qtd, (uint8_t*)(uintptr_t) setup_packet, 8);
+  gtd_init(qtd, (uint8_t*) setup_packet, 8);
   qtd->index           = dev_addr;
   qtd->pid             = PID_SETUP;
   qtd->data_toggle     = GTD_DT_DATA0;
@@ -501,6 +518,7 @@ bool hcd_setup_send(uint8_t rhport, uint8_t dev_addr, uint8_t const setup_packet
   //------------- Attach TDs list to Control Endpoint -------------//
   ed->td_head.address = (uint32_t) _phys_addr(qtd);
 
+  ohci_data_clean_invalidate();
   OHCI_REG->command_status_bit.control_list_filled = 1;
 
   return true;
@@ -512,6 +530,11 @@ bool hcd_edpt_xfer(uint8_t rhport, uint8_t dev_addr, uint8_t ep_addr, uint8_t * 
 
   uint8_t const epnum = tu_edpt_number(ep_addr);
   uint8_t const dir   = tu_edpt_dir(ep_addr);
+
+  if (dir == TUSB_DIR_IN)
+	  hcd_dcache_clean_invalidate(buffer, buflen);
+  else
+	  hcd_dcache_clean(buffer, buflen);
 
   if ( epnum == 0 )
   {
@@ -527,6 +550,7 @@ bool hcd_edpt_xfer(uint8_t rhport, uint8_t dev_addr, uint8_t ep_addr, uint8_t * 
 
     ed->td_head.address = (uint32_t) _phys_addr(gtd);
 
+    ohci_data_clean_invalidate();
     OHCI_REG->command_status_bit.control_list_filled = 1;
   }else
   {
@@ -542,6 +566,7 @@ bool hcd_edpt_xfer(uint8_t rhport, uint8_t dev_addr, uint8_t ep_addr, uint8_t * 
     td_insert_to_ed(ed, gtd);
 
     tusb_xfer_type_t xfer_type = ed_get_xfer_type( ed_from_addr(dev_addr, ep_addr) );
+    ohci_data_clean_invalidate();
     if (TUSB_XFER_BULK == xfer_type) OHCI_REG->command_status_bit.bulk_list_filled = 1;
   }
 
@@ -556,8 +581,8 @@ bool hcd_edpt_abort_xfer(uint8_t rhport, uint8_t dev_addr, uint8_t ep_addr) {
   return false;
 }
 
-bool hcd_edpt_clear_stall(uint8_t rhport, uint8_t dev_addr, uint8_t ep_addr) {
-  (void) rhport;
+bool hcd_edpt_clear_stall(uint8_t rhport, uint8_t dev_addr, uint8_t ep_addr)
+{
   ohci_ed_t * const p_ed = ed_from_addr(dev_addr, ep_addr);
 
   p_ed->is_stalled = 0;
@@ -566,7 +591,9 @@ bool hcd_edpt_clear_stall(uint8_t rhport, uint8_t dev_addr, uint8_t ep_addr) {
   p_ed->td_head.toggle = 0; // reset data toggle
   p_ed->td_head.halted = 0;
 
-  if ( TUSB_XFER_BULK == ed_get_xfer_type(p_ed) ) OHCI_REG->command_status_bit.bulk_list_filled = 1;
+  const tusb_xfer_type_t type = ed_get_xfer_type(p_ed);
+  ohci_data_clean_invalidate();
+ if ( TUSB_XFER_BULK == type ) OHCI_REG->command_status_bit.bulk_list_filled = 1;
 
   return true;
 }
@@ -665,11 +692,12 @@ static void done_queue_isr(uint8_t hostid)
 
     td_head = (ohci_td_item_t*) _virt_addr((void *)td_head->next);
   }
+  ohci_data_clean_invalidate();
 }
 
-void hcd_int_handler(uint8_t hostid, bool in_isr) {
+void hcd_int_handler(uint8_t hostid, bool in_isr)
+{
   (void) in_isr;
-
   uint32_t const int_en     = OHCI_REG->interrupt_enable;
   uint32_t const int_status = OHCI_REG->interrupt_status & int_en;
 
