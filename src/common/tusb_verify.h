@@ -76,7 +76,13 @@
 #endif
 
 // Halt CPU (breakpoint) when hitting error, only apply for Cortex M3, M4, M7, M33
-#if defined(__ARM_ARCH_7M__) || defined (__ARM_ARCH_7EM__) || defined(__ARM_ARCH_8M_MAIN__)
+#if defined(__ARM_ARCH_8A__) || defined (__ARM_ARCH_7A__)
+  #define TU_BREAKPOINT() do                                                                                \
+  {                                                                                                         \
+    for (;;) ; \
+  } while(0)
+
+#elif defined(__ARM_ARCH_7M__) || defined (__ARM_ARCH_7EM__) || defined(__ARM_ARCH_8M_MAIN__)
   #define TU_BREAKPOINT() do                                                                                \
   {                                                                                                         \
     volatile uint32_t* ARM_CM_DHCSR =  ((volatile uint32_t*) 0xE000EDF0UL); /* Cortex M CoreDebug->DHCSR */ \
