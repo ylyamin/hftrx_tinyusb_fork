@@ -50,9 +50,13 @@
   #define FRAMELIST_SIZE_BIT_VALUE      7u
   #define FRAMELIST_SIZE_USBCMD_VALUE   (((FRAMELIST_SIZE_BIT_VALUE &  3) << EHCI_USBCMD_FRAMELIST_SIZE_SHIFT) | \
                                          ((FRAMELIST_SIZE_BIT_VALUE >> 2) << EHCI_USBCMD_CHIPIDEA_FRAMELIST_SIZE_MSB_SHIFT))
+#elif (CFG_TUSB_MCU == OPT_MCU_F1C100S)
+  // STD EHCI: 1024 elements
+  #define FRAMELIST_SIZE_BIT_VALUE      0u
+  #define FRAMELIST_SIZE_USBCMD_VALUE   ((FRAMELIST_SIZE_BIT_VALUE &  3) << EHCI_USBCMD_FRAMELIST_SIZE_SHIFT)
 #else
   // STD EHCI: 256 elements
-  #define FRAMELIST_SIZE_BIT_VALUE      0u //2u
+  #define FRAMELIST_SIZE_BIT_VALUE      2u
   #define FRAMELIST_SIZE_USBCMD_VALUE   ((FRAMELIST_SIZE_BIT_VALUE &  3) << EHCI_USBCMD_FRAMELIST_SIZE_SHIFT)
 #endif
 
@@ -270,10 +274,10 @@ static void init_periodic_list(uint8_t rhport) {
   // 3 --> period_head_arr[3] (8ms)
 
   ehci_link_t * const framelist  = ehci_data.period_framelist;
-  ehci_link_t * const head_1ms = (ehci_link_t *) &ehci_data.period_head_arr[0];
-  ehci_link_t * const head_2ms = (ehci_link_t *) &ehci_data.period_head_arr[1];
-  ehci_link_t * const head_4ms = (ehci_link_t *) &ehci_data.period_head_arr[2];
-  ehci_link_t * const head_8ms = (ehci_link_t *) &ehci_data.period_head_arr[3];
+  ehci_link_t * const head_1ms = list_get_period_head(rhport, 1); //(ehci_link_t *) &ehci_data.period_head_arr[0];
+  ehci_link_t * const head_2ms = list_get_period_head(rhport, 2); //(ehci_link_t *) &ehci_data.period_head_arr[1];
+  ehci_link_t * const head_4ms = list_get_period_head(rhport, 4); //(ehci_link_t *) &ehci_data.period_head_arr[2];
+  ehci_link_t * const head_8ms = list_get_period_head(rhport, 5); //(ehci_link_t *) &ehci_data.period_head_arr[3];
 
   for (uint32_t i = 0; i < FRAMELIST_SIZE; i++) {
     framelist[i].address = (uint32_t) head_1ms;
@@ -627,7 +631,8 @@ void proccess_async_xfer_isr(ehci_qhd_t * const list_head)
 TU_ATTR_ALWAYS_INLINE static inline
 void process_period_xfer_isr(uint8_t rhport, uint32_t interval_ms)
 {
-  uint32_t const period_1ms_addr = (uint32_t) list_get_period_head(rhport, 1u);
+	PRINTF("process_period_xfer_isr: interval_ms=%u\n", (unsigned) interval_ms);
+  uintptr_t const period_1ms_addr = (uint32_t) list_get_period_head(rhport, 1u);
   ehci_link_t next_link = *list_get_period_head(rhport, interval_ms);
 
   while (!next_link.terminate) {
@@ -693,9 +698,9 @@ void hcd_int_handler(uint8_t rhport, bool in_isr) {
   if (usb_int) {
     proccess_async_xfer_isr(list_get_async_head(rhport));
 
-//    for ( uint32_t i = 1; i <= FRAMELIST_SIZE; i *= 2 ) {
-//      process_period_xfer_isr(rhport, i);
-//    }
+    for ( uint32_t i = 1; i <= FRAMELIST_SIZE; i *= 2 ) {
+      process_period_xfer_isr(rhport, i);
+    }
 
     regs->status = usb_int; // Acknowledge
   }
@@ -715,7 +720,11 @@ void hcd_int_handler(uint8_t rhport, bool in_isr) {
 // Get head of periodic list
 TU_ATTR_ALWAYS_INLINE static inline ehci_link_t* list_get_period_head(uint8_t rhport, uint32_t interval_ms) {
   (void) rhport;
-  return (ehci_link_t*) &ehci_data.period_head_arr[ tu_log2( tu_min32(FRAMELIST_SIZE, interval_ms) ) ];
+  const unsigned ix = tu_log2( tu_min32(FRAMELIST_SIZE, interval_ms) );
+  PRINTF("interval_ms=%u, ix=%u\n", (unsigned) interval_ms, ix);
+
+  TU_ASSERT(TU_ARRAY_SIZE(ehci_data.period_head_arr) > ix );
+  return (ehci_link_t*) &ehci_data.period_head_arr[ix];
 }
 
 // Get head of async list
