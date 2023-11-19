@@ -364,11 +364,11 @@ static void gtd_init(ohci_gtd_t *p_td, uint8_t *data_ptr, uint16_t total_bytes) 
   p_td->delay_interrupt = OHCI_INT_ON_COMPLETE_NO;
   p_td->condition_code = OHCI_CCODE_NOT_ACCESSED;
 
-  uint8_t *cbp = (uint8_t *) _phys_addr(data_ptr);
+  uintptr_t cbp = (uintptr_t) _phys_addr(data_ptr);
 
   p_td->current_buffer_pointer = cbp;
   if ( total_bytes ) {
-    p_td->buffer_end = _phys_addr(data_ptr + total_bytes - 1);
+    p_td->buffer_end = (uintptr_t) _phys_addr(data_ptr + total_bytes - 1);
   } else {
     p_td->buffer_end = cbp;
   }
