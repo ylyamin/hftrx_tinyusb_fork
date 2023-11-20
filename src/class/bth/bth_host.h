@@ -13,9 +13,11 @@
  extern "C" {
 #endif
 
-//--------------------------------------------------------------------+
-// Host BTH Interface
-//--------------------------------------------------------------------+
+
+#define TUH_BT_APP_CLASS                    (TUSB_CLASS_WIRELESS_CONTROLLER)
+#define TUH_BT_APP_SUBCLASS                 0x01
+#define TUH_BT_PROTOCOL_PRIMARY_CONTROLLER  0x01
+#define TUH_BT_PROTOCOL_AMP_CONTROLLER      0x02
 
 //--------------------------------------------------------------------+
 // Internal Class Driver API
