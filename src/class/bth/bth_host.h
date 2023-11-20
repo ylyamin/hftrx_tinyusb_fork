@@ -36,8 +36,8 @@ void bthh_close      (uint8_t dev_addr);
 // Get the number of bytes available for writing
 uint32_t tuh_bth_write_available(uint8_t idx);
 
-// Write to cdc interface
-uint32_t tuh_bth_write(uint8_t idx, void const* buffer, uint32_t bufsize);
+// Write to bth interface
+uint32_t tuh_bth_send_acl(uint8_t idx, void const* buffer, uint32_t bufsize);
 
 // Force sending data if possible, return number of forced bytes
 uint32_t tuh_bth_write_flush(uint8_t idx);
@@ -52,7 +52,7 @@ bool tuh_bth_write_clear(uint8_t idx);
 // Get the number of bytes available for reading
 uint32_t tuh_bth_read_available(uint8_t idx);
 
-// Read from cdc interface
+// Read from bth interface
 uint32_t tuh_bth_read (uint8_t idx, void* buffer, uint32_t bufsize);
 
 // Get a byte from RX FIFO without removing it
@@ -60,6 +60,12 @@ bool tuh_bth_peek(uint8_t idx, uint8_t* ch);
 
 // Clear the received FIFO
 bool tuh_bth_read_clear (uint8_t idx);
+
+//--------------------------------------------------------------------+
+// Control API
+//--------------------------------------------------------------------+
+bool tuh_bth_send_cmd(uint8_t idx, const uint8_t * packet, uint16_t len);
+
 
 #ifdef __cplusplus
  }
