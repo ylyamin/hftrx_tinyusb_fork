@@ -149,31 +149,20 @@ bool tuh_bth_send_cmd(uint8_t idx, const uint8_t * packet, uint16_t len)
 
 bool bthh_set_config(uint8_t dev_addr, uint8_t itf_num)
 {
-	TU_LOG_DRV("bthh_set_config: dev_addr=%u, itf_num=%u\n", dev_addr, itf_num);
-//	  tusb_control_request_t request = { 0 };
-//	  request.wIndex = tu_htole16((uint16_t) itf_num);
-//
-//	  // fake transfer to kick-off process
-//	  tuh_xfer_t xfer;
-//	  xfer.daddr  = dev_addr;
-//	  xfer.result = XFER_RESULT_SUCCESS;
-//	  xfer.setup  = &request;
-//	  xfer.user_data = 0; // initial state
-//
-//
-//
-	  uint8_t const idx = tuh_bth_itf_get_index(dev_addr, itf_num);
-	  bthh_interface_t * const p_bth = get_itf(idx);
+	uint8_t const idx = tuh_bth_itf_get_index(dev_addr, itf_num);
+	TU_LOG_DRV("bthh_set_config: dev_addr=%u, itf_num=%u, idx=%u\n", dev_addr, itf_num, idx);
+	bthh_interface_t * const p_bth = get_itf(idx);
 	//TU_LOG_DRV("bthh_set_config: idx=%u\n", idx);
-	  TU_ASSERT(bth_send_command(p_bth, NULL, 0), false);		// RESET command
+	TU_ASSERT(bth_send_command(p_bth, NULL, 0), false);		// RESET command
 
-	  // Prepare for incoming data
-	  tu_edpt_stream_read_xfer(&p_bth->stream.acl_in);
+	// Prepare for incoming data
+	tu_edpt_stream_read_xfer(&p_bth->stream.acl_in);
 
-	  // notify usbh that driver enumeration is complete
-	  usbh_driver_set_config_complete(p_bth->daddr, itf_num);
+	// notify usbh that driver enumeration is complete
+	usbh_driver_set_config_complete(p_bth->daddr, itf_num);
 
-	  return true;
+	if (tuh_bth_mount_cb) tuh_bth_mount_cb(idx);
+	return true;
 }
 
 bool bthh_xfer_cb(uint8_t dev_addr, uint8_t ep_addr, xfer_result_t event, uint32_t xferred_bytes) {
