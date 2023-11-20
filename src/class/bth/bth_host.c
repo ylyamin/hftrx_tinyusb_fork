@@ -130,7 +130,7 @@ static bool bth_send_command(bthh_interface_t* p_bth, const uint8_t * packet, ui
     .daddr       = p_bth->daddr,
     .ep_addr     = 0,
     .setup       = &request,
-    .buffer      = packet,
+    .buffer      = (uint8_t*) packet,
     .complete_cb = 0,//complete_cb ? bthh_internal_control_complete : NULL, // complete_cb is NULL for sync call
     .user_data   = 0//user_data
   };
@@ -144,6 +144,7 @@ bool tuh_bth_send_cmd(uint8_t idx, const uint8_t * packet, uint16_t len)
 	bthh_interface_t * const p_bth = get_itf(idx);
 	TU_VERIFY(p_bth);
 	TU_ASSERT(bth_send_command(p_bth, packet, len), false);
+	return true;
 }
 
 bool bthh_set_config(uint8_t dev_addr, uint8_t itf_num)
