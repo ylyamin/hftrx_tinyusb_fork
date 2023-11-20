@@ -20,6 +20,10 @@
  //--------------------------------------------------------------------+
  // Host BTH Interface
  //--------------------------------------------------------------------+
+#define CFG_TUH_BTH_TX_BUFSIZE 64
+#define CFG_TUH_BTH_TX_EPSIZE 64
+#define CFG_TUH_BTH_RX_BUFSIZE 64
+#define CFG_TUH_BTH_RX_EPSIZE 64
 
 typedef struct {
 	uint8_t daddr;
@@ -41,15 +45,14 @@ typedef struct {
 	uint8_t acl_out;
 
 	struct {
-	 tu_edpt_stream_t ep_notif;
 	 tu_edpt_stream_t acl_in;
 	 tu_edpt_stream_t acl_out;
 
-//	 uint8_t tx_ff_buf[CFG_TUH_BTH_TX_BUFSIZE];
-//	 CFG_TUH_MEM_ALIGN uint8_t tx_ep_buf[CFG_TUH_BTH_TX_EPSIZE];
-//
-//	 uint8_t rx_ff_buf[CFG_TUH_BTH_TX_BUFSIZE];
-//	 CFG_TUH_MEM_ALIGN uint8_t rx_ep_buf[CFG_TUH_BTH_TX_EPSIZE];
+	 uint8_t acl_out_ff_buf[CFG_TUH_BTH_TX_BUFSIZE];
+	 CFG_TUH_MEM_ALIGN uint8_t acl_out_ep_buf[CFG_TUH_BTH_TX_EPSIZE];
+
+	 uint8_t acl_in_ff_buf[CFG_TUH_BTH_TX_BUFSIZE];
+	 CFG_TUH_MEM_ALIGN uint8_t acl_in_ep_buf[CFG_TUH_BTH_TX_EPSIZE];
 	} stream;
 
 } bthh_interface_t;
@@ -101,20 +104,17 @@ void bthh_init(void)
 {
 	tu_memclr(bthh_data, sizeof(bthh_data));
 
-	for(size_t i=0; i<CFG_TUH_BTH; i++)
+	for (size_t i=0; i<CFG_TUH_BTH; i++)
 	{
-	bthh_interface_t* p_bth = &bthh_data[i];
+		bthh_interface_t* p_bth = &bthh_data[i];
 
-//	tu_edpt_stream_init(&p_bth->stream.acl_out, true, true, false,
-//						  p_bth->stream.acl_out_ff_buf, CFG_TUH_TUH_TX_BUFSIZE,
-//						  p_bth->stream.acl_out_ep_buf, CFG_TUH_TUH_TX_EPSIZE);
-//
-//	tu_edpt_stream_init(&p_bth->stream.acl_in, true, false, false,
-//						  p_bth->stream.acl_in_ff_buf, CFG_TUH_TUH_RX_BUFSIZE,
-//						  p_bth->stream.acl_in_ep_buf, CFG_TUH_TUH_RX_EPSIZE);
-//	tu_edpt_stream_init(&p_bth->stream.ep_notif, true, false, false,
-//						  p_bth->stream.ep_notif_ff_buf, CFG_TUH_TUH_RX_BUFSIZE,
-//						  p_bth->stream.ep_notif_ep_buf, CFG_TUH_TUH_RX_EPSIZE);
+		tu_edpt_stream_init(&p_bth->stream.acl_out, true, true, false,
+							  p_bth->stream.acl_out_ff_buf, CFG_TUH_BTH_TX_BUFSIZE,
+							  p_bth->stream.acl_out_ep_buf, CFG_TUH_BTH_TX_EPSIZE);
+
+		tu_edpt_stream_init(&p_bth->stream.acl_in, true, false, false,
+							  p_bth->stream.acl_in_ff_buf, CFG_TUH_BTH_RX_BUFSIZE,
+							  p_bth->stream.acl_in_ep_buf, CFG_TUH_BTH_RX_EPSIZE);
 	}
 
 }
@@ -124,38 +124,35 @@ bool bthh_open(uint8_t rhport, uint8_t dev_addr, tusb_desc_interface_t const *it
 	  (void) rhport;
 	  uint8_t const * p_desc_end = ((uint8_t const*) itf_desc) + max_len;
 
-	  bthh_interface_t * p_bth = make_new_itf(dev_addr, itf_desc);
-	  TU_VERIFY(p_bth);
-	  if (p_bth == NULL)
-		  return false;
 
-	  //PRINTF("bthh_open: c=%02X s=%02x\n", itf_desc->bInterfaceClass, itf_desc->bInterfaceSubClass);
 	  if ( TUSB_CLASS_WIRELESS_CONTROLLER == itf_desc->bInterfaceClass &&
 		  TUH_BT_APP_SUBCLASS == itf_desc->bInterfaceSubClass &&
-		  TUH_BT_PROTOCOL_PRIMARY_CONTROLLER == itf_desc->bInterfaceProtocol)
+		  TUH_BT_PROTOCOL_PRIMARY_CONTROLLER == itf_desc->bInterfaceProtocol &&
+		  0 == itf_desc->bInterfaceNumber &&
+		  3 == itf_desc->bNumEndpoints
+		  )
 	  {
 		  PRINTF("BT RADIO found!\n");
 
-		  tusb_desc_endpoint_t const * desc_ep = (tusb_desc_endpoint_t const *) tu_desc_next(itf_desc);
+		  bthh_interface_t * p_bth = make_new_itf(dev_addr, itf_desc);
+		  TU_VERIFY(p_bth);
+		  if (p_bth == NULL)
+			  return false;
 
-		  bthh_interface_t* p_bth = get_itf(dev_addr);
-		  tusb_desc_endpoint_t const* ep_desc = (tusb_desc_endpoint_t const*) tu_desc_next(itf_desc);
+		  tusb_desc_endpoint_t const* ep_desc = (tusb_desc_endpoint_t const *) tu_desc_next(itf_desc);
 
 		  for (uint32_t i = 0; i < 3; i++) {
 			if (TUSB_DESC_ENDPOINT == ep_desc->bDescriptorType && TUSB_XFER_INTERRUPT == ep_desc->bmAttributes.xfer)
 			{
-				PRINTF("bt ev: EP %02X\n", ep_desc->bEndpointAddress);
 				p_bth->ep_notif = ep_desc->bEndpointAddress;
-//				TU_ASSERT(tuh_edpt_open(dev_addr, ep_desc));
+				TU_ASSERT(tuh_edpt_open(dev_addr, ep_desc));
 			}
 			else if (TUSB_DIR_IN == tu_edpt_dir(ep_desc->bEndpointAddress)) {
-				PRINTF("bt in: EP %02X\n", ep_desc->bEndpointAddress);
 				p_bth->acl_in = ep_desc->bEndpointAddress;
-//				TU_ASSERT(tuh_edpt_open(dev_addr, ep_desc));
+				TU_ASSERT(tuh_edpt_open(dev_addr, ep_desc));
 			} else {
-				PRINTF("bt out: EP %02X\n", ep_desc->bEndpointAddress);
 				p_bth->acl_out = ep_desc->bEndpointAddress;
-//				TU_ASSERT(tuh_edpt_open(dev_addr, ep_desc));
+				TU_ASSERT(tuh_edpt_open(dev_addr, ep_desc));
 			}
 
 		    ep_desc = (tusb_desc_endpoint_t const*) tu_desc_next(ep_desc);
@@ -184,7 +181,6 @@ void bthh_close(uint8_t dev_addr)
 	      //tu_memclr(p_bth, sizeof(bthh_interface_t));
 	      p_bth->daddr = 0;
 	      p_bth->bInterfaceNumber = 0;
-	      tu_edpt_stream_close(&p_bth->stream.ep_notif);
 	      tu_edpt_stream_close(&p_bth->stream.acl_in);
 	      tu_edpt_stream_close(&p_bth->stream.acl_out);
 	    }

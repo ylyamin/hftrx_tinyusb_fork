@@ -66,8 +66,8 @@ typedef struct {
     uint8_t tx_ff_buf[CFG_TUH_CDC_TX_BUFSIZE];
     CFG_TUH_MEM_ALIGN uint8_t tx_ep_buf[CFG_TUH_CDC_TX_EPSIZE];
 
-    uint8_t rx_ff_buf[CFG_TUH_CDC_TX_BUFSIZE];
-    CFG_TUH_MEM_ALIGN uint8_t rx_ep_buf[CFG_TUH_CDC_TX_EPSIZE];
+    uint8_t rx_ff_buf[CFG_TUH_CDC_RX_BUFSIZE];
+    CFG_TUH_MEM_ALIGN uint8_t rx_ep_buf[CFG_TUH_CDC_RX_EPSIZE];
   } stream;
 
 } cdch_interface_t;
