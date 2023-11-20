@@ -298,9 +298,6 @@ static void init_periodic_list(uint8_t rhport) {
   list_insert(framelist + 3, head_8ms, EHCI_QTYPE_QHD);
 
   head_1ms->terminate = 1;
-  head_2ms->terminate = 1;	// ???
-  head_4ms->terminate = 1;	// ???
-  head_8ms->terminate = 1;	// ???
 }
 
 bool ehci_init(uint8_t rhport, uint32_t capability_reg, uint32_t operatial_reg)
@@ -414,7 +411,8 @@ bool hcd_edpt_open(uint8_t rhport, uint8_t dev_addr, tusb_desc_endpoint_t const 
     break;
 
     case TUSB_XFER_INTERRUPT:
-      list_head = list_get_period_head(rhport, TU_MIN(p_qhd->interval_ms, 8));
+      //list_head = list_get_period_head(rhport, TU_MIN(p_qhd->interval_ms, 8));
+      list_head = list_get_period_head(rhport, 8);
     break;
 
     case TUSB_XFER_ISOCHRONOUS:
@@ -637,13 +635,12 @@ void proccess_async_xfer_isr(ehci_qhd_t * const list_head)
 TU_ATTR_ALWAYS_INLINE static inline
 void process_period_xfer_isr(uint8_t rhport, uint32_t interval_ms)
 {
-	//PRINTF("process_period_xfer_isr: interval_ms=%u\n", (unsigned) interval_ms);
-  uintptr_t const period_16ms_addr = (uint32_t) list_get_period_head(rhport, 16u);
+  uintptr_t const period_1ms_addr = (uint32_t) list_get_period_head(rhport, 1u);
+  uintptr_t const period_8ms_addr = (uint32_t) list_get_period_head(rhport, 8u);
   ehci_link_t next_link = *list_get_period_head(rhport, interval_ms);
 
   while (!next_link.terminate) {
-	  //if (interval_ms > 1 && period_1ms_addr == tu_align32(next_link.address)) {
-	  if (interval_ms > 16 || period_16ms_addr == tu_align32(next_link.address)) {
+    if (interval_ms > 8 || period_8ms_addr == tu_align32(next_link.address)) {
       // 1ms period list is end of list for all larger interval
       break;
     }
@@ -728,7 +725,7 @@ void hcd_int_handler(uint8_t rhport, bool in_isr) {
 TU_ATTR_ALWAYS_INLINE static inline ehci_link_t* list_get_period_head(uint8_t rhport, uint32_t interval_ms) {
   (void) rhport;
   const unsigned ix = tu_log2( tu_min32(FRAMELIST_SIZE, interval_ms) );
-  //PRINTF("interval_ms=%u, ix=%u\n", (unsigned) interval_ms, ix);
+  //PRINTF("interval_ms=%u, ix=%u, as=%u\n", (unsigned) interval_ms, ix, TU_ARRAY_SIZE(ehci_data.period_head_arr));
 
   TU_ASSERT(TU_ARRAY_SIZE(ehci_data.period_head_arr) > ix );
   return (ehci_link_t*) &ehci_data.period_head_arr[ix];
