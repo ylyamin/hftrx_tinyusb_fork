@@ -166,40 +166,42 @@ bool bthh_set_config(uint8_t dev_addr, uint8_t itf_num)
 }
 
 bool bthh_xfer_cb(uint8_t dev_addr, uint8_t ep_addr, xfer_result_t event, uint32_t xferred_bytes) {
-	  // TODO handle stall response, retry failed transfer ...
-	  TU_ASSERT(event == XFER_RESULT_SUCCESS);
-	  TU_LOG_DRV("bthh_xfer_cb: dev_addr=%u, ep_addr=%u, xferred_bytes=%u\n", (unsigned) dev_addr, (unsigned) ep_addr, (unsigned) xferred_bytes);
-
-	  uint8_t const idx = get_idx_by_ep_addr(dev_addr, ep_addr);
-	  bthh_interface_t * p_bth = get_itf(idx);
-	  TU_ASSERT(p_bth);
-
-	  if ( ep_addr == p_bth->stream.acl_out.ep_addr ) {
-	    // invoke tx complete callback to possibly refill tx fifo
-	    ////if (tuh_bth_tx_complete_cb) tuh_bth_tx_complete_cb(idx);
-
-	    if ( 0 == tu_edpt_stream_write_xfer(&p_bth->stream.acl_out) ) {
-	      // If there is no data left, a ZLP should be sent if:
-	      // - xferred_bytes is multiple of EP Packet size and not zero
-	      tu_edpt_stream_write_zlp_if_needed(&p_bth->stream.acl_out, xferred_bytes);
-	    }
-	  }
-	  else if ( ep_addr == p_bth->stream.acl_in.ep_addr ) {
-	      tu_edpt_stream_read_xfer_complete(&p_bth->stream.acl_in, xferred_bytes);
-
-	    // invoke receive callback
-	    ////if (tuh_bth_rx_cb) tuh_bth_rx_cb(idx);
-
-	    // prepare for next transfer if needed
-	    tu_edpt_stream_read_xfer(&p_bth->stream.acl_in);
-	  }else if ( ep_addr == p_bth->ep_notif ) {
-	    // TODO handle notification endpoint
-		  TP();
-	  }else {
-	    TU_ASSERT(false);
-	  }
-
+  // TODO handle stall response, retry failed transfer ...
+  TU_LOG_DRV("bthh_xfer_cb: event=%d, dev_addr=%u, ep_addr=0x%02X, xferred_bytes=%u\n", (int) event, (unsigned) dev_addr, (unsigned) ep_addr, (unsigned) xferred_bytes);
+  if (event != XFER_RESULT_SUCCESS)
 	  return true;
+  TU_ASSERT(event == XFER_RESULT_SUCCESS);
+
+  uint8_t const idx = get_idx_by_ep_addr(dev_addr, ep_addr);
+  bthh_interface_t * p_bth = get_itf(idx);
+  TU_ASSERT(p_bth);
+
+  if ( ep_addr == p_bth->stream.acl_out.ep_addr ) {
+	// invoke tx complete callback to possibly refill tx fifo
+	if (tuh_bth_tx_complete_cb) tuh_bth_tx_complete_cb(idx);
+
+	if ( 0 == tu_edpt_stream_write_xfer(&p_bth->stream.acl_out) ) {
+	  // If there is no data left, a ZLP should be sent if:
+	  // - xferred_bytes is multiple of EP Packet size and not zero
+	  tu_edpt_stream_write_zlp_if_needed(&p_bth->stream.acl_out, xferred_bytes);
+	}
+  }
+  else if ( ep_addr == p_bth->stream.acl_in.ep_addr ) {
+	  tu_edpt_stream_read_xfer_complete(&p_bth->stream.acl_in, xferred_bytes);
+
+	// invoke receive callback
+	if (tuh_bth_rx_cb) tuh_bth_rx_cb(idx);
+
+	// prepare for next transfer if needed
+	tu_edpt_stream_read_xfer(&p_bth->stream.acl_in);
+  }else if ( ep_addr == p_bth->ep_notif ) {
+	// TODO handle notification endpoint
+	  if (tuh_bth_event_cb) tuh_bth_event_cb(idx);
+  }else {
+	TU_ASSERT(false);
+  }
+
+  return true;
 }
 
 void bthh_init(void)

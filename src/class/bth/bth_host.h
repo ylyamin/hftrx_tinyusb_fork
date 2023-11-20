@@ -83,6 +83,9 @@ TU_ATTR_WEAK extern void tuh_bth_rx_cb(uint8_t idx);
 // Invoked when a TX is complete and therefore space becomes available in TX buffer
 TU_ATTR_WEAK extern void tuh_bth_tx_complete_cb(uint8_t idx);
 
+// Invoked when received notificaion
+TU_ATTR_WEAK extern void tuh_bth_event_cb(uint8_t idx);
+
 
 #ifdef __cplusplus
  }
