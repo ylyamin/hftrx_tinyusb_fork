@@ -20,9 +20,9 @@
  //--------------------------------------------------------------------+
  // Host BTH Interface
  //--------------------------------------------------------------------+
-#define CFG_TUH_BTH_TX_BUFSIZE 64
+#define CFG_TUH_BTH_TX_BUFSIZE 1024
 #define CFG_TUH_BTH_TX_EPSIZE 64
-#define CFG_TUH_BTH_RX_BUFSIZE 64
+#define CFG_TUH_BTH_RX_BUFSIZE 1024
 #define CFG_TUH_BTH_RX_EPSIZE 64
 
 typedef struct {
