@@ -16,13 +16,14 @@
 
 #define TU_LOG_DRV(...)   TU_LOG(CFG_TUH_BTH_LOG_LEVEL, __VA_ARGS__)
 
+#define HCI_ACL_PAYLOAD_SIZE (1691 + 4)
 
  //--------------------------------------------------------------------+
  // Host BTH Interface
  //--------------------------------------------------------------------+
-#define CFG_TUH_BTH_TX_BUFSIZE 1024
+#define CFG_TUH_BTH_TX_BUFSIZE HCI_ACL_PAYLOAD_SIZE
 #define CFG_TUH_BTH_TX_EPSIZE 64
-#define CFG_TUH_BTH_RX_BUFSIZE 1024
+#define CFG_TUH_BTH_RX_BUFSIZE HCI_ACL_PAYLOAD_SIZE
 #define CFG_TUH_BTH_RX_EPSIZE 64
 
 typedef struct {
