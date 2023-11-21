@@ -216,26 +216,30 @@ bool bthh_xfer_cb(uint8_t dev_addr, uint8_t ep_addr, xfer_result_t event, uint32
 
 	  if (xferred_bytes < p_bth->event_in_len) {
 		  // last ZLP or last packet
-		  if (tuh_bth_event_cb) tuh_bth_event_cb(idx, p_bth->hci_event, p_bth->hci_event_offset += xferred_bytes);
-
+		  p_bth->hci_event_offset += xferred_bytes;
+		  if (p_bth->hci_event_offset >= 2 && p_bth->hci_event_offset >= (p_bth->hci_event [1] + 2)) {
+			  // Packet format validation pass
+			  if (tuh_bth_event_cb) tuh_bth_event_cb(idx, p_bth->hci_event, p_bth->hci_event [1] + 2);
+		  }
+		  // next packet prepare
 		  p_bth->hci_event_offset = 0;
-		  p_bth->ep_notif_xfer.buflen      = TU_MIN(sizeof p_bth->hci_event - p_bth->hci_event_offset, p_bth->event_in_len);
-		  p_bth->ep_notif_xfer.buffer      = p_bth->hci_event + p_bth->hci_event_offset;
+		  p_bth->ep_notif_xfer.buflen = TU_MIN(sizeof p_bth->hci_event - p_bth->hci_event_offset, p_bth->event_in_len);
+		  p_bth->ep_notif_xfer.buffer = p_bth->hci_event + p_bth->hci_event_offset;
 	  }
 	  else if (xferred_bytes == p_bth->event_in_len &&
 			  (p_bth->hci_event_offset + p_bth->event_in_len) <= sizeof p_bth->hci_event) {
 		  // continue read
 		  p_bth->hci_event_offset += xferred_bytes;
-		  p_bth->ep_notif_xfer.buflen      = TU_MIN(sizeof p_bth->hci_event - p_bth->hci_event_offset, p_bth->event_in_len);
-		  p_bth->ep_notif_xfer.buffer      = p_bth->hci_event + p_bth->hci_event_offset;
+		  p_bth->ep_notif_xfer.buflen = TU_MIN(sizeof p_bth->hci_event - p_bth->hci_event_offset, p_bth->event_in_len);
+		  p_bth->ep_notif_xfer.buffer = p_bth->hci_event + p_bth->hci_event_offset;
 	  }
 	  else {
 		  // Some kind of errors
 	      TU_LOG_DRV("  bthh_xfer_cb addr = %u index = %u: kind of error\r\n", dev_addr, idx);
 		  if (tuh_bth_event_cb) tuh_bth_event_cb(idx, p_bth->hci_event, p_bth->hci_event_offset += xferred_bytes);
 		  p_bth->hci_event_offset = 0;
-		  p_bth->ep_notif_xfer.buflen      = TU_MIN(sizeof p_bth->hci_event - p_bth->hci_event_offset, p_bth->event_in_len);
-		  p_bth->ep_notif_xfer.buffer      = p_bth->hci_event + p_bth->hci_event_offset;
+		  p_bth->ep_notif_xfer.buflen = TU_MIN(sizeof p_bth->hci_event - p_bth->hci_event_offset, p_bth->event_in_len);
+		  p_bth->ep_notif_xfer.buffer = p_bth->hci_event + p_bth->hci_event_offset;
 	  }
 
 	  tuh_edpt_xfer(& p_bth->ep_notif_xfer);
