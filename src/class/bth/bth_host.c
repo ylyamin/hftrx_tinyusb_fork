@@ -41,7 +41,9 @@ typedef struct {
 	uint8_t itf_num;
 	//tuh_xfer_cb_t user_control_cb;
 	uint8_t ep_notif;
-	uint8_t ep_notif_buf[16];
+	uint8_t hci_event[258];
+	unsigned hci_event_offset;
+	unsigned event_in_len;
 	tuh_xfer_t ep_notif_xfer;
 
 	struct {
@@ -149,14 +151,6 @@ bool tuh_bth_send_cmd(uint8_t idx, const uint8_t * packet, uint16_t len)
 	return true;
 }
 
-
-static void tuh_bth_event_default_cb(tuh_xfer_t* xfer)
-{
-	TP();
-	for (;;)
-		;
-}
-
 bool bthh_set_config(uint8_t dev_addr, uint8_t itf_num)
 {
 	uint8_t const idx = tuh_bth_itf_get_index(dev_addr, itf_num);
@@ -168,14 +162,15 @@ bool bthh_set_config(uint8_t dev_addr, uint8_t itf_num)
 	// Prepare for incoming data
 	tu_edpt_stream_read_xfer(&p_bth->stream.acl_in);
 
+    p_bth->hci_event_offset = 0;
     tuh_xfer_t * const xfer = &p_bth->ep_notif_xfer;
     {
       xfer->daddr       = dev_addr;
       xfer->ep_addr     = p_bth->ep_notif;
-	  xfer->buflen      = sizeof p_bth->ep_notif_buf;
-      xfer->buffer      = p_bth->ep_notif_buf;
-      xfer->complete_cb = tuh_bth_event_default_cb;
-      xfer->user_data   = (uintptr_t) p_bth->ep_notif_buf; // since buffer is not available in callback; use user data to store the buffer
+	  xfer->buflen      = TU_MIN(sizeof p_bth->hci_event - p_bth->hci_event_offset, p_bth->event_in_len);
+      xfer->buffer      = p_bth->hci_event + p_bth->hci_event_offset;
+      xfer->complete_cb = NULL;
+      xfer->user_data   = (uintptr_t) p_bth->hci_event; // since buffer is not available in callback; use user data to store the buffer
     };
     // submit transfer for this EP
     tuh_edpt_xfer(xfer);
@@ -218,11 +213,30 @@ bool bthh_xfer_cb(uint8_t dev_addr, uint8_t ep_addr, xfer_result_t event, uint32
 	tu_edpt_stream_read_xfer(&p_bth->stream.acl_in);
   }else if ( ep_addr == p_bth->ep_notif ) {
 	  // done trough event callback
-	  if (tuh_bth_event_cb) tuh_bth_event_cb(idx, p_bth->ep_notif_buf, xferred_bytes);
-	  // continue to submit transfer, with updated buffer
-	  // other field remain the same
-	  p_bth->ep_notif_xfer.buflen = sizeof p_bth->ep_notif_buf;
-	  p_bth->ep_notif_xfer.buffer = p_bth->ep_notif_buf;
+
+	  if (xferred_bytes < p_bth->event_in_len) {
+		  // last ZLP or last packet
+		  if (tuh_bth_event_cb) tuh_bth_event_cb(idx, p_bth->hci_event, p_bth->hci_event_offset += xferred_bytes);
+
+		  p_bth->hci_event_offset = 0;
+		  p_bth->ep_notif_xfer.buflen      = TU_MIN(sizeof p_bth->hci_event - p_bth->hci_event_offset, p_bth->event_in_len);
+		  p_bth->ep_notif_xfer.buffer      = p_bth->hci_event + p_bth->hci_event_offset;
+	  }
+	  else if (xferred_bytes == p_bth->event_in_len &&
+			  (p_bth->hci_event_offset + p_bth->event_in_len) <= sizeof p_bth->hci_event) {
+		  // continue read
+		  p_bth->hci_event_offset += xferred_bytes;
+		  p_bth->ep_notif_xfer.buflen      = TU_MIN(sizeof p_bth->hci_event - p_bth->hci_event_offset, p_bth->event_in_len);
+		  p_bth->ep_notif_xfer.buffer      = p_bth->hci_event + p_bth->hci_event_offset;
+	  }
+	  else {
+		  // Some kind of errors
+	      TU_LOG_DRV("  bthh_xfer_cb addr = %u index = %u: kind of error\r\n", dev_addr, idx);
+		  if (tuh_bth_event_cb) tuh_bth_event_cb(idx, p_bth->hci_event, p_bth->hci_event_offset += xferred_bytes);
+		  p_bth->hci_event_offset = 0;
+		  p_bth->ep_notif_xfer.buflen      = TU_MIN(sizeof p_bth->hci_event - p_bth->hci_event_offset, p_bth->event_in_len);
+		  p_bth->ep_notif_xfer.buffer      = p_bth->hci_event + p_bth->hci_event_offset;
+	  }
 
 	  tuh_edpt_xfer(& p_bth->ep_notif_xfer);
 
@@ -276,6 +290,7 @@ bool bthh_open(uint8_t rhport, uint8_t dev_addr, tusb_desc_interface_t const *it
 			if (TUSB_DESC_ENDPOINT == ep_desc->bDescriptorType && TUSB_XFER_INTERRUPT == ep_desc->bmAttributes.xfer)
 			{
 				p_bth->ep_notif = ep_desc->bEndpointAddress;
+				p_bth->event_in_len = tu_edpt_packet_size(ep_desc);
 				TU_ASSERT(tuh_edpt_open(dev_addr, ep_desc));
 			}
 			else if (TUSB_DIR_IN == tu_edpt_dir(ep_desc->bEndpointAddress)) {
