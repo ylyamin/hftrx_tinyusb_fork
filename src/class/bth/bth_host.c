@@ -235,8 +235,12 @@ bool bthh_xfer_cb(uint8_t dev_addr, uint8_t ep_addr, xfer_result_t event, uint32
 	  }
 	  else {
 		  // Some kind of errors
-	      TU_LOG_DRV("  bthh_xfer_cb addr = %u index = %u: kind of error\r\n", dev_addr, idx);
-		  if (tuh_bth_event_cb) tuh_bth_event_cb(idx, p_bth->hci_event, p_bth->hci_event_offset += xferred_bytes);
+	      TU_LOG_DRV("Strange input bthh_xfer_cb addr = %u index = %u: kind of error\r\n", dev_addr, idx);
+		  p_bth->hci_event_offset += xferred_bytes;
+		  if (p_bth->hci_event_offset >= 2 && p_bth->hci_event_offset >= (p_bth->hci_event [1] + 2)) {
+			  // Packet format validation pass
+			  if (tuh_bth_event_cb) tuh_bth_event_cb(idx, p_bth->hci_event, p_bth->hci_event [1] + 2);
+		  }
 		  p_bth->hci_event_offset = 0;
 		  p_bth->ep_notif_xfer.buflen = TU_MIN(sizeof p_bth->hci_event - p_bth->hci_event_offset, p_bth->event_in_len);
 		  p_bth->ep_notif_xfer.buffer = p_bth->hci_event + p_bth->hci_event_offset;
