@@ -125,7 +125,7 @@ static bool bth_send_command(bthh_interface_t* p_bth, const uint8_t * packet, ui
     .bRequest = 0x00,
     .wValue   = tu_htole16(0),
     .wIndex   = tu_htole16((uint16_t) p_bth->bInterfaceNumber),
-    .wLength  = len
+    .wLength  = tu_htole16((uint16_t) len)
   };
 
   //p_bth->user_control_cb = complete_cb;
@@ -135,7 +135,7 @@ static bool bth_send_command(bthh_interface_t* p_bth, const uint8_t * packet, ui
     .ep_addr     = 0,
     .setup       = &request,
     .buffer      = (uint8_t*) packet,
-    .complete_cb = 0,//complete_cb ? bthh_internal_control_complete : NULL, // complete_cb is NULL for sync call
+    .complete_cb = NULL,//complete_cb ? bthh_internal_control_complete : NULL, // complete_cb is NULL for sync call
     .user_data   = 0//user_data
   };
 
@@ -154,7 +154,7 @@ bool tuh_bth_send_cmd(uint8_t idx, const uint8_t * packet, uint16_t len)
 bool bthh_set_config(uint8_t dev_addr, uint8_t itf_num)
 {
 	uint8_t const idx = tuh_bth_itf_get_index(dev_addr, itf_num);
-	TU_LOG_DRV("bthh_set_config: dev_addr=%u, itf_num=%u, idx=%u\n", dev_addr, itf_num, idx);
+	//TU_LOG_DRV("bthh_set_config: dev_addr=%u, itf_num=%u, idx=%u\n", dev_addr, itf_num, idx);
 	bthh_interface_t * const p_bth = get_itf(idx);
 	//TU_LOG_DRV("bthh_set_config: idx=%u\n", idx);
 	TU_ASSERT(bth_send_command(p_bth, NULL, 0), false);		// RESET command
