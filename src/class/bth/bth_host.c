@@ -41,6 +41,8 @@ typedef struct {
 	uint8_t itf_num;
 	//tuh_xfer_cb_t user_control_cb;
 	uint8_t ep_notif;
+	uint8_t ep_notif_buf[16];
+	tuh_xfer_t ep_notif_xfer;
 
 	struct {
 	 tu_edpt_stream_t acl_in;
@@ -147,6 +149,14 @@ bool tuh_bth_send_cmd(uint8_t idx, const uint8_t * packet, uint16_t len)
 	return true;
 }
 
+
+static void tuh_bth_event_default_cb(tuh_xfer_t* xfer)
+{
+	TP();
+	for (;;)
+		;
+}
+
 bool bthh_set_config(uint8_t dev_addr, uint8_t itf_num)
 {
 	uint8_t const idx = tuh_bth_itf_get_index(dev_addr, itf_num);
@@ -158,6 +168,18 @@ bool bthh_set_config(uint8_t dev_addr, uint8_t itf_num)
 	// Prepare for incoming data
 	tu_edpt_stream_read_xfer(&p_bth->stream.acl_in);
 
+    tuh_xfer_t * const xfer = &p_bth->ep_notif_xfer;
+    {
+      xfer->daddr       = dev_addr;
+      xfer->ep_addr     = p_bth->ep_notif;
+	  xfer->buflen      = sizeof p_bth->ep_notif_buf;
+      xfer->buffer      = p_bth->ep_notif_buf;
+      xfer->complete_cb = tuh_bth_event_default_cb;
+      xfer->user_data   = (uintptr_t) p_bth->ep_notif_buf; // since buffer is not available in callback; use user data to store the buffer
+    };
+    // submit transfer for this EP
+    tuh_edpt_xfer(xfer);
+
 	// notify usbh that driver enumeration is complete
 	usbh_driver_set_config_complete(p_bth->daddr, itf_num);
 
@@ -167,7 +189,7 @@ bool bthh_set_config(uint8_t dev_addr, uint8_t itf_num)
 
 bool bthh_xfer_cb(uint8_t dev_addr, uint8_t ep_addr, xfer_result_t event, uint32_t xferred_bytes) {
   // TODO handle stall response, retry failed transfer ...
-  TU_LOG_DRV("bthh_xfer_cb: event=%d, dev_addr=%u, ep_addr=0x%02X, xferred_bytes=%u\n", (int) event, (unsigned) dev_addr, (unsigned) ep_addr, (unsigned) xferred_bytes);
+  //TU_LOG_DRV("bthh_xfer_cb: event=%d, dev_addr=%u, ep_addr=0x%02X, xferred_bytes=%u\n", (int) event, (unsigned) dev_addr, (unsigned) ep_addr, (unsigned) xferred_bytes);
   if (event != XFER_RESULT_SUCCESS)
 	  return true;
   TU_ASSERT(event == XFER_RESULT_SUCCESS);
@@ -195,8 +217,15 @@ bool bthh_xfer_cb(uint8_t dev_addr, uint8_t ep_addr, xfer_result_t event, uint32
 	// prepare for next transfer if needed
 	tu_edpt_stream_read_xfer(&p_bth->stream.acl_in);
   }else if ( ep_addr == p_bth->ep_notif ) {
-	// TODO handle notification endpoint
-	  if (tuh_bth_event_cb) tuh_bth_event_cb(idx);
+	  // done trough event callback
+	  if (tuh_bth_event_cb) tuh_bth_event_cb(idx, p_bth->ep_notif_buf, xferred_bytes);
+	  // continue to submit transfer, with updated buffer
+	  // other field remain the same
+	  p_bth->ep_notif_xfer.buflen = sizeof p_bth->ep_notif_buf;
+	  p_bth->ep_notif_xfer.buffer = p_bth->ep_notif_buf;
+
+	  tuh_edpt_xfer(& p_bth->ep_notif_xfer);
+
   }else {
 	TU_ASSERT(false);
   }
@@ -252,11 +281,11 @@ bool bthh_open(uint8_t rhport, uint8_t dev_addr, tusb_desc_interface_t const *it
 			else if (TUSB_DIR_IN == tu_edpt_dir(ep_desc->bEndpointAddress)) {
 				p_bth->stream.acl_in.ep_addr = ep_desc->bEndpointAddress;
 				TU_ASSERT(tuh_edpt_open(dev_addr, ep_desc));
-			      tu_edpt_stream_open(&p_bth->stream.acl_in, p_bth->daddr, ep_desc);
+			    tu_edpt_stream_open(&p_bth->stream.acl_in, p_bth->daddr, ep_desc);
 			} else {
 				p_bth->stream.acl_out.ep_addr = ep_desc->bEndpointAddress;
 				TU_ASSERT(tuh_edpt_open(dev_addr, ep_desc));
-			      tu_edpt_stream_open(&p_bth->stream.acl_out, p_bth->daddr, ep_desc);
+			    tu_edpt_stream_open(&p_bth->stream.acl_out, p_bth->daddr, ep_desc);
 			}
 
 		    ep_desc = (tusb_desc_endpoint_t const*) tu_desc_next(ep_desc);
@@ -282,12 +311,14 @@ void bthh_close(uint8_t dev_addr)
 	      // Invoke application callback
 	      ////if (tuh_bth_umount_cb) tuh_bth_umount_cb(idx);
 
+	      tuh_edpt_abort_xfer(dev_addr, p_bth->ep_notif);
+	      tu_edpt_stream_close(&p_bth->stream.acl_in);
+	      tu_edpt_stream_close(&p_bth->stream.acl_out);
+
 	      //tu_memclr(p_bth, sizeof(bthh_interface_t));
 	      p_bth->daddr = 0;
 	      p_bth->bInterfaceNumber = 0;
 	      p_bth->ep_notif = 0;
-	      tu_edpt_stream_close(&p_bth->stream.acl_in);
-	      tu_edpt_stream_close(&p_bth->stream.acl_out);
 	    }
 	  }
 

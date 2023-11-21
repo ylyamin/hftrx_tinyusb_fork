@@ -84,7 +84,7 @@ TU_ATTR_WEAK extern void tuh_bth_rx_cb(uint8_t idx);
 TU_ATTR_WEAK extern void tuh_bth_tx_complete_cb(uint8_t idx);
 
 // Invoked when received notificaion
-TU_ATTR_WEAK extern void tuh_bth_event_cb(uint8_t idx);
+TU_ATTR_WEAK extern void tuh_bth_event_cb(uint8_t idx, uint8_t * buffer, uint16_t size);
 
 
 #ifdef __cplusplus
