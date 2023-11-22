@@ -158,16 +158,17 @@ bool tuh_bth_send_cmd(uint8_t idx, const uint8_t * packet, uint16_t len) {
 bool tuh_bth_can_send_now(uint8_t idx) {
 	bthh_interface_t * const p_bth = get_itf(idx);
 	TU_VERIFY(p_bth);
+//	return ! usbh_edpt_busy(p_bth->daddr, p_bth->stream.acl_out.ep_addr);
 	return tu_edpt_stream_write_available(&p_bth->stream.acl_out) == CFG_TUH_BTH_TX_BUFSIZE &&
-			true;
+			! usbh_edpt_busy(p_bth->daddr, p_bth->stream.acl_out.ep_addr);
 }
 
 bool bthh_set_config(uint8_t dev_addr, uint8_t itf_num)
 {
 	uint8_t const idx = tuh_bth_itf_get_index(dev_addr, itf_num);
-	//TU_LOG_DRV("bthh_set_config: dev_addr=%u, itf_num=%u, idx=%u\n", dev_addr, itf_num, idx);
+	//TU_LOG_DRV("bthh_set_config: dev_addr=%u, itf_num=%u, idx=%u\r\n", dev_addr, itf_num, idx);
 	bthh_interface_t * const p_bth = get_itf(idx);
-	//TU_LOG_DRV("bthh_set_config: idx=%u\n", idx);
+	//TU_LOG_DRV("bthh_set_config: idx=%u\r\n", idx);
 	TU_ASSERT(bth_send_command(p_bth, NULL, 0, NULL), false);		// RESET command
 
 	// Prepare for incoming data
@@ -195,7 +196,7 @@ bool bthh_set_config(uint8_t dev_addr, uint8_t itf_num)
 
 bool bthh_xfer_cb(uint8_t dev_addr, uint8_t ep_addr, xfer_result_t event, uint32_t xferred_bytes) {
   // TODO handle stall response, retry failed transfer ...
-  //TU_LOG_DRV("bthh_xfer_cb: event=%d, dev_addr=%u, ep_addr=0x%02X, xferred_bytes=%u\n", (int) event, (unsigned) dev_addr, (unsigned) ep_addr, (unsigned) xferred_bytes);
+  //TU_LOG_DRV("bthh_xfer_cb: event=%d, dev_addr=%u, ep_addr=0x%02X, xferred_bytes=%u\r\n", (int) event, (unsigned) dev_addr, (unsigned) ep_addr, (unsigned) xferred_bytes);
   if (event != XFER_RESULT_SUCCESS)
 	  return true;
   TU_ASSERT(event == XFER_RESULT_SUCCESS);
@@ -294,7 +295,7 @@ bool bthh_open(uint8_t rhport, uint8_t dev_addr, tusb_desc_interface_t const *it
 
 	  if ( TUSB_CLASS_WIRELESS_CONTROLLER == itf_desc->bInterfaceClass &&
 		  TUH_BT_APP_SUBCLASS == itf_desc->bInterfaceSubClass &&
-		  TUH_BT_PROTOCOL_PRIMARY_CONTROLLER == itf_desc->bInterfaceProtocol &&
+		  //TUH_BT_PROTOCOL_PRIMARY_CONTROLLER == itf_desc->bInterfaceProtocol &&
 		  0 == itf_desc->bInterfaceNumber &&
 		  3 == itf_desc->bNumEndpoints
 		  )
@@ -368,7 +369,11 @@ bool tuh_bth_send_acl(uint8_t idx, const uint8_t* packet, uint16_t len)
   bthh_interface_t* p_bth = get_itf(idx);
   TU_VERIFY(p_bth);
 
+  ASSERT(! usbh_edpt_busy(p_bth->daddr, p_bth->stream.acl_out.ep_addr));
   return tu_edpt_stream_write(&p_bth->stream.acl_out, packet, len) != 0 && tu_edpt_stream_write_xfer(&p_bth->stream.acl_out) != 0;
+//  while (usbh_edpt_busy(p_bth->daddr, p_bth->stream.acl_out.ep_addr)) {
+//
+//  }
 }
 
 //--------------------------------------------------------------------+
