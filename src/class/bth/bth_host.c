@@ -54,8 +54,8 @@ typedef struct {
 	 uint8_t acl_out_ff_buf[CFG_TUH_BTH_TX_BUFSIZE];
 	 CFG_TUH_MEM_ALIGN uint8_t acl_out_ep_buf[CFG_TUH_BTH_TX_EPSIZE];
 
-	 uint8_t acl_in_ff_buf[CFG_TUH_BTH_TX_BUFSIZE];
-	 CFG_TUH_MEM_ALIGN uint8_t acl_in_ep_buf[CFG_TUH_BTH_TX_EPSIZE];
+	 uint8_t acl_in_ff_buf[CFG_TUH_BTH_RX_BUFSIZE];
+	 CFG_TUH_MEM_ALIGN uint8_t acl_in_ep_buf[CFG_TUH_BTH_RX_EPSIZE];
 	} stream;
 
 } bthh_interface_t;
@@ -195,20 +195,21 @@ bool bthh_xfer_cb(uint8_t dev_addr, uint8_t ep_addr, xfer_result_t event, uint32
   TU_ASSERT(p_bth);
 
   if ( ep_addr == p_bth->stream.acl_out.ep_addr ) {
-	// invoke tx complete callback to possibly refill tx fifo
-	if (tuh_bth_tx_complete_cb) tuh_bth_tx_complete_cb(idx);
-
 	if ( 0 == tu_edpt_stream_write_xfer(&p_bth->stream.acl_out) ) {
 	  // If there is no data left, a ZLP should be sent if:
 	  // - xferred_bytes is multiple of EP Packet size and not zero
 	  tu_edpt_stream_write_zlp_if_needed(&p_bth->stream.acl_out, xferred_bytes);
+	}
+	// invoke tx complete callback to possibly refill tx fifo
+	if (tuh_bth_send_acl_cb && tu_edpt_stream_write_available(&p_bth->stream.acl_out) == CFG_TUH_BTH_TX_BUFSIZE) {
+		tuh_bth_send_acl_cb(idx);
 	}
   }
   else if ( ep_addr == p_bth->stream.acl_in.ep_addr ) {
 	  tu_edpt_stream_read_xfer_complete(&p_bth->stream.acl_in, xferred_bytes);
 
 	// invoke receive callback
-	if (tuh_bth_rx_cb) tuh_bth_rx_cb(idx);
+	if (tuh_bth_rx_acl_cb) tuh_bth_rx_acl_cb(idx);
 
 	// prepare for next transfer if needed
 	tu_edpt_stream_read_xfer(&p_bth->stream.acl_in);
@@ -352,36 +353,12 @@ void bthh_close(uint8_t dev_addr)
 // Write
 //--------------------------------------------------------------------+
 
-uint32_t tuh_bth_send_acl(uint8_t idx, void const* buffer, uint32_t bufsize)
+bool tuh_bth_send_acl(uint8_t idx, const uint8_t* packet, uint16_t len)
 {
   bthh_interface_t* p_bth = get_itf(idx);
   TU_VERIFY(p_bth);
 
-  return tu_edpt_stream_write(&p_bth->stream.acl_out, buffer, bufsize);
-}
-
-uint32_t tuh_bth_write_flush(uint8_t idx)
-{
-  bthh_interface_t* p_bth = get_itf(idx);
-  TU_VERIFY(p_bth);
-
-  return tu_edpt_stream_write_xfer(&p_bth->stream.acl_out);
-}
-
-bool tuh_bth_write_clear(uint8_t idx)
-{
-  bthh_interface_t* p_bth = get_itf(idx);
-  TU_VERIFY(p_bth);
-
-  return tu_edpt_stream_clear(&p_bth->stream.acl_out);
-}
-
-uint32_t tuh_bth_write_available(uint8_t idx)
-{
-  bthh_interface_t* p_bth = get_itf(idx);
-  TU_VERIFY(p_bth);
-
-  return tu_edpt_stream_write_available(&p_bth->stream.acl_out);
+  return tu_edpt_stream_write(&p_bth->stream.acl_out, packet, len) != 0 && tu_edpt_stream_write_xfer(&p_bth->stream.acl_out) != 0;
 }
 
 //--------------------------------------------------------------------+
@@ -396,30 +373,5 @@ uint32_t tuh_bth_read (uint8_t idx, void* buffer, uint32_t bufsize)
   return tu_edpt_stream_read(&p_bth->stream.acl_in, buffer, bufsize);
 }
 
-uint32_t tuh_bth_read_available(uint8_t idx)
-{
-  bthh_interface_t* p_bth = get_itf(idx);
-  TU_VERIFY(p_bth);
-
-  return tu_edpt_stream_read_available(&p_bth->stream.acl_in);
-}
-
-bool tuh_bth_peek(uint8_t idx, uint8_t* ch)
-{
-  bthh_interface_t* p_bth = get_itf(idx);
-  TU_VERIFY(p_bth);
-
-  return tu_edpt_stream_peek(&p_bth->stream.acl_in, ch);
-}
-
-bool tuh_bth_read_clear (uint8_t idx)
-{
-  bthh_interface_t* p_bth = get_itf(idx);
-  TU_VERIFY(p_bth);
-
-  bool ret = tu_edpt_stream_clear(&p_bth->stream.acl_in);
-  tu_edpt_stream_read_xfer(&p_bth->stream.acl_in);
-  return ret;
-}
 
 #endif
