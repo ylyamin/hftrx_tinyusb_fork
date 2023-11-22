@@ -140,21 +140,26 @@ static bool bth_send_command(bthh_interface_t* p_bth, const uint8_t * packet, ui
     .user_data   = 0//user_data
   };
 
-  TU_ASSERT(tuh_control_xfer(&xfer), false);
+  TU_ASSERT(tuh_control_xfer(&xfer));
   return true;
 }
 
-static void tuh_xfer_cb(tuh_xfer_t* xfer)
-{
+static void tuh_bth_cmd_xfer_cb(tuh_xfer_t* xfer) {
 	if (tuh_bth_send_cmd_cb) tuh_bth_send_cmd_cb(tuh_bth_itf_get_index(xfer->daddr, 0));
 }
 
-bool tuh_bth_send_cmd(uint8_t idx, const uint8_t * packet, uint16_t len)
-{
+bool tuh_bth_send_cmd(uint8_t idx, const uint8_t * packet, uint16_t len) {
 	bthh_interface_t * const p_bth = get_itf(idx);
 	TU_VERIFY(p_bth);
-	TU_ASSERT(bth_send_command(p_bth, packet, len, tuh_xfer_cb), false);
+	TU_ASSERT(bth_send_command(p_bth, packet, len, tuh_bth_cmd_xfer_cb), false);
 	return true;
+}
+
+bool tuh_bth_can_send_now(uint8_t idx) {
+	bthh_interface_t * const p_bth = get_itf(idx);
+	TU_VERIFY(p_bth);
+	return tu_edpt_stream_write_available(&p_bth->stream.acl_out) == CFG_TUH_BTH_TX_BUFSIZE &&
+			true;
 }
 
 bool bthh_set_config(uint8_t dev_addr, uint8_t itf_num)

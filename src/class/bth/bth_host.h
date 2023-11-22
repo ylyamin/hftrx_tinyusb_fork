@@ -38,7 +38,7 @@ void bthh_close      (uint8_t dev_addr);
 uint32_t tuh_bth_read (uint8_t idx, void* buffer, uint32_t bufsize);
 bool tuh_bth_send_acl(uint8_t idx, const uint8_t* packet, uint16_t len);
 bool tuh_bth_send_cmd(uint8_t idx, const uint8_t * packet, uint16_t len);
-
+bool tuh_bth_can_send_now(uint8_t idx);
 //--------------------------------------------------------------------+
 // BTH APPLICATION CALLBACKS
 //--------------------------------------------------------------------+
