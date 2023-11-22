@@ -333,13 +333,13 @@ void bthh_close(uint8_t dev_addr)
 	      TU_LOG_DRV("  BTHh close addr = %u index = %u\r\n", dev_addr, idx);
 
 	      // Invoke application callback
-	      ////if (tuh_bth_umount_cb) tuh_bth_umount_cb(idx);
-
+	      if (tuh_bth_umount_cb) tuh_bth_umount_cb(idx);
 	      tuh_edpt_abort_xfer(dev_addr, p_bth->ep_notif);
 	      tu_edpt_stream_close(&p_bth->stream.acl_in);
 	      tu_edpt_stream_close(&p_bth->stream.acl_out);
 
-	      //tu_memclr(p_bth, sizeof(bthh_interface_t));
+	      tu_memclr(p_bth, sizeof(bthh_interface_t));
+
 	      p_bth->daddr = 0;
 	      p_bth->bInterfaceNumber = 0;
 	      p_bth->ep_notif = 0;
