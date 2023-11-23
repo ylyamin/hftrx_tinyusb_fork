@@ -16,15 +16,22 @@
 
 #define TU_LOG_DRV(...)   TU_LOG(CFG_TUH_BTH_LOG_LEVEL, __VA_ARGS__)
 
+#define HCI_CMD_HEADER_SIZE          3
+#define HCI_ACL_HEADER_SIZE          4
+#define HCI_SCO_HEADER_SIZE          3
+#define HCI_EVENT_HEADER_SIZE        2
+#define HCI_ISO_HEADER_SIZE          4
+
 #define HCI_ACL_PAYLOAD_SIZE (1691 + 4)
+#define HCI_INCOMING_PRE_BUFFER_SIZE 14 // sizeof BNEP header, avoid memcpy
+#define HCI_OUTGOING_PRE_BUFFER_SIZE  4
+#define HCI_ACL_BUFFER_SIZE        (HCI_ACL_HEADER_SIZE   + HCI_ACL_PAYLOAD_SIZE)
 
  //--------------------------------------------------------------------+
  // Host BTH Interface
  //--------------------------------------------------------------------+
 #define CFG_TUH_BTH_TX_BUFSIZE HCI_ACL_PAYLOAD_SIZE
 #define CFG_TUH_BTH_TX_EPSIZE 64
-#define CFG_TUH_BTH_RX_BUFSIZE HCI_ACL_PAYLOAD_SIZE
-#define CFG_TUH_BTH_RX_EPSIZE 64
 
 typedef struct {
 	uint8_t daddr;
@@ -47,15 +54,21 @@ typedef struct {
 	unsigned event_in_len;
 	tuh_xfer_t ep_notif_xfer;
 
+	uint8_t ep_acl_in;
+	uint16_t acl_in_len;
+	uint16_t hci_acl_in_offset;
+	uint8_t  hci_acl_in_buffer[HCI_INCOMING_PRE_BUFFER_SIZE + HCI_ACL_BUFFER_SIZE];
+	uint8_t  * hci_acl_in_packet;// = &hci_acl_in_buffer[HCI_INCOMING_PRE_BUFFER_SIZE];
+
 	struct {
-	 tu_edpt_stream_t acl_in;
+//	 tu_edpt_stream_t acl_in;
 	 tu_edpt_stream_t acl_out;
 
 	 uint8_t acl_out_ff_buf[CFG_TUH_BTH_TX_BUFSIZE];
 	 CFG_TUH_MEM_ALIGN uint8_t acl_out_ep_buf[CFG_TUH_BTH_TX_EPSIZE];
 
-	 uint8_t acl_in_ff_buf[CFG_TUH_BTH_RX_BUFSIZE];
-	 CFG_TUH_MEM_ALIGN uint8_t acl_in_ep_buf[CFG_TUH_BTH_RX_EPSIZE];
+//	 uint8_t acl_in_ff_buf[CFG_TUH_BTH_RX_BUFSIZE];
+//	 CFG_TUH_MEM_ALIGN uint8_t acl_in_ep_buf[CFG_TUH_BTH_RX_EPSIZE];
 	} stream;
 
 } bthh_interface_t;
@@ -95,7 +108,7 @@ static inline uint8_t get_idx_by_ep_addr(uint8_t daddr, uint8_t ep_addr) {
   {
     bthh_interface_t* const p_bth = &bthh_data[i];
     if ( (p_bth->daddr == daddr) &&
-         (ep_addr == p_bth->ep_notif || ep_addr == p_bth->stream.acl_in.ep_addr || ep_addr == p_bth->stream.acl_out.ep_addr))
+         (ep_addr == p_bth->ep_notif || ep_addr == p_bth->ep_acl_in || ep_addr == p_bth->stream.acl_out.ep_addr))
     {
       return i;
     }
@@ -172,7 +185,9 @@ bool bthh_set_config(uint8_t dev_addr, uint8_t itf_num)
 	TU_ASSERT(bth_send_command(p_bth, NULL, 0, NULL), false);		// RESET command
 
 	// Prepare for incoming data
-	tu_edpt_stream_read_xfer(&p_bth->stream.acl_in);
+	p_bth->hci_acl_in_offset = 0;
+    const uint16_t acl_in_transfer_size = TU_MIN(p_bth->acl_in_len, HCI_ACL_BUFFER_SIZE - p_bth->hci_acl_in_offset);
+    TU_ASSERT(usbh_edpt_xfer(p_bth->daddr, p_bth->ep_acl_in, &p_bth->hci_acl_in_packet[p_bth->hci_acl_in_offset], acl_in_transfer_size));
 
     p_bth->hci_event_offset = 0;
     tuh_xfer_t * const xfer = &p_bth->ep_notif_xfer;
@@ -216,14 +231,24 @@ bool bthh_xfer_cb(uint8_t dev_addr, uint8_t ep_addr, xfer_result_t event, uint32
 		tuh_bth_send_acl_cb(idx);
 	}
   }
-  else if ( ep_addr == p_bth->stream.acl_in.ep_addr ) {
-	  tu_edpt_stream_read_xfer_complete(&p_bth->stream.acl_in, xferred_bytes);
-
+  else if ( ep_addr == p_bth->ep_acl_in ) {
+		uint16_t acl_size;
+	  p_bth->hci_acl_in_offset += xferred_bytes;
+      if (p_bth->hci_acl_in_offset < 4) return true;
+      acl_size = 4 + tu_unaligned_read16(p_bth->hci_acl_in_packet + 2);
+      // acl complete
+      if (p_bth->hci_acl_in_offset > acl_size){
+          PRINTF("Extra HCI EVENT!\n");
+      }
+      if (p_bth->hci_acl_in_offset >= acl_size){
+      	if (tuh_bth_rx_acl_cb) tuh_bth_rx_acl_cb(idx, p_bth->hci_acl_in_packet, acl_size);
+         p_bth->hci_acl_in_offset = 0;
+      }
 	// invoke receive callback
-	if (tuh_bth_rx_acl_cb) tuh_bth_rx_acl_cb(idx);
 
 	// prepare for next transfer if needed
-	tu_edpt_stream_read_xfer(&p_bth->stream.acl_in);
+    const uint16_t acl_in_transfer_size = TU_MIN(p_bth->acl_in_len, HCI_ACL_BUFFER_SIZE - p_bth->hci_acl_in_offset);
+    TU_ASSERT(usbh_edpt_xfer(p_bth->daddr, p_bth->ep_acl_in, &p_bth->hci_acl_in_packet[p_bth->hci_acl_in_offset], acl_in_transfer_size));
   }else if ( ep_addr == p_bth->ep_notif ) {
 	  // done trough event callback
 
@@ -280,9 +305,10 @@ void bthh_init(void)
 							  p_bth->stream.acl_out_ff_buf, CFG_TUH_BTH_TX_BUFSIZE,
 							  p_bth->stream.acl_out_ep_buf, CFG_TUH_BTH_TX_EPSIZE);
 
-		tu_edpt_stream_init(&p_bth->stream.acl_in, true, false, false,
-							  p_bth->stream.acl_in_ff_buf, CFG_TUH_BTH_RX_BUFSIZE,
-							  p_bth->stream.acl_in_ep_buf, CFG_TUH_BTH_RX_EPSIZE);
+//		tu_edpt_stream_init(&p_bth->stream.acl_in, true, false, false,
+//							  p_bth->stream.acl_in_ff_buf, CFG_TUH_BTH_RX_BUFSIZE,
+//							  p_bth->stream.acl_in_ep_buf, CFG_TUH_BTH_RX_EPSIZE);
+		p_bth->hci_acl_in_packet = &p_bth->hci_acl_in_buffer[HCI_INCOMING_PRE_BUFFER_SIZE];
 	}
 
 }
@@ -315,9 +341,9 @@ bool bthh_open(uint8_t rhport, uint8_t dev_addr, tusb_desc_interface_t const *it
 				TU_ASSERT(tuh_edpt_open(dev_addr, ep_desc));
 			}
 			else if (TUSB_DIR_IN == tu_edpt_dir(ep_desc->bEndpointAddress)) {
-				p_bth->stream.acl_in.ep_addr = ep_desc->bEndpointAddress;
+				p_bth->ep_acl_in = ep_desc->bEndpointAddress;
+				p_bth->acl_in_len = tu_edpt_packet_size(ep_desc);
 				TU_ASSERT(tuh_edpt_open(dev_addr, ep_desc));
-			    tu_edpt_stream_open(&p_bth->stream.acl_in, p_bth->daddr, ep_desc);
 			} else {
 				p_bth->stream.acl_out.ep_addr = ep_desc->bEndpointAddress;
 				TU_ASSERT(tuh_edpt_open(dev_addr, ep_desc));
@@ -346,11 +372,10 @@ void bthh_close(uint8_t dev_addr)
 
 	      // Invoke application callback
 	      if (tuh_bth_umount_cb) tuh_bth_umount_cb(idx);
-	      tuh_edpt_abort_xfer(dev_addr, p_bth->ep_notif);
-	      tu_edpt_stream_close(&p_bth->stream.acl_in);
-	      tu_edpt_stream_close(&p_bth->stream.acl_out);
 
-	      tu_memclr(p_bth, sizeof(bthh_interface_t));
+	      tuh_edpt_abort_xfer(dev_addr, p_bth->ep_notif);
+	      tuh_edpt_abort_xfer(dev_addr, p_bth->ep_acl_in);
+	      tu_edpt_stream_close(&p_bth->stream.acl_out);
 
 	      p_bth->daddr = 0;
 	      p_bth->bInterfaceNumber = 0;
@@ -375,18 +400,5 @@ bool tuh_bth_send_acl(uint8_t idx, const uint8_t* packet, uint16_t len)
 //
 //  }
 }
-
-//--------------------------------------------------------------------+
-// Read
-//--------------------------------------------------------------------+
-
-uint32_t tuh_bth_read (uint8_t idx, void* buffer, uint32_t bufsize)
-{
-  bthh_interface_t* p_bth = get_itf(idx);
-  TU_VERIFY(p_bth);
-
-  return tu_edpt_stream_read(&p_bth->stream.acl_in, buffer, bufsize);
-}
-
 
 #endif

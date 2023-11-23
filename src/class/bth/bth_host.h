@@ -35,7 +35,6 @@ void bthh_close      (uint8_t dev_addr);
 
 // Write to bth interface
 // Read from bth interface
-uint32_t tuh_bth_read (uint8_t idx, void* buffer, uint32_t bufsize);
 bool tuh_bth_send_acl(uint8_t idx, const uint8_t* packet, uint16_t len);
 bool tuh_bth_send_cmd(uint8_t idx, const uint8_t * packet, uint16_t len);
 bool tuh_bth_can_send_now(uint8_t idx);
@@ -51,7 +50,7 @@ TU_ATTR_WEAK extern void tuh_bth_mount_cb(uint8_t idx);
 TU_ATTR_WEAK extern void tuh_bth_umount_cb(uint8_t idx);
 
 // Invoked when received new data
-TU_ATTR_WEAK extern void tuh_bth_rx_acl_cb(uint8_t idx);
+TU_ATTR_WEAK extern void tuh_bth_rx_acl_cb(uint8_t idx, uint8_t* buffer, uint16_t count);
 
 // Invoked when a TX is complete and therefore space becomes available in TX buffer
 TU_ATTR_WEAK extern void tuh_bth_send_acl_cb(uint8_t idx);
