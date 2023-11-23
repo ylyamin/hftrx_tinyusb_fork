@@ -153,6 +153,7 @@ static bool bth_send_command(bthh_interface_t* p_bth, const uint8_t * packet, ui
     .user_data   = 0//user_data
   };
 
+  return tuh_control_xfer(&xfer);
   TU_ASSERT(tuh_control_xfer(&xfer));
   return true;
 }
@@ -161,10 +162,12 @@ static void tuh_bth_cmd_xfer_cb(tuh_xfer_t* xfer) {
 	if (tuh_bth_send_cmd_cb) tuh_bth_send_cmd_cb(tuh_bth_itf_get_index(xfer->daddr, 0));
 }
 
-bool tuh_bth_send_cmd(uint8_t idx, const uint8_t * packet, uint16_t len) {
+bool tuh_bth_send_cmd(uint8_t idx, const uint8_t * packet, uint16_t len, tuh_bth_complete_cb_t complete_cb, uintptr_t arg) {
 	bthh_interface_t * const p_bth = get_itf(idx);
 	TU_VERIFY(p_bth);
-	TU_ASSERT(bth_send_command(p_bth, packet, len, tuh_bth_cmd_xfer_cb), false);
+	while (! bth_send_command(p_bth, packet, len, tuh_bth_cmd_xfer_cb))
+		tuh_task();
+	//TU_ASSERT(bth_send_command(p_bth, packet, len, tuh_bth_cmd_xfer_cb), false);
 	return true;
 }
 
@@ -388,7 +391,7 @@ void bthh_close(uint8_t dev_addr)
 // Write
 //--------------------------------------------------------------------+
 
-bool tuh_bth_send_acl(uint8_t idx, const uint8_t* packet, uint16_t len)
+bool tuh_bth_send_acl(uint8_t idx, const uint8_t* packet, uint16_t len, tuh_bth_complete_cb_t complete_cb, uintptr_t arg)
 {
   bthh_interface_t* p_bth = get_itf(idx);
   TU_VERIFY(p_bth);

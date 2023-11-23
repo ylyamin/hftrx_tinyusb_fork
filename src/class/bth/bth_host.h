@@ -33,10 +33,19 @@ void bthh_close      (uint8_t dev_addr);
 // Write API
 //--------------------------------------------------------------------+
 
+typedef struct {
+//  msc_cbw_t const* cbw; // SCSI command
+//  msc_csw_t const* csw; // SCSI status
+//  void* scsi_data;      // SCSI Data
+  uintptr_t user_arg;   // user argument
+}tuh_bth_complete_data_t;
+
+typedef bool (*tuh_bth_complete_cb_t)(uint8_t dev_addr, tuh_bth_complete_data_t const* cb_data);
+
 // Write to bth interface
 // Read from bth interface
-bool tuh_bth_send_acl(uint8_t idx, const uint8_t* packet, uint16_t len);
-bool tuh_bth_send_cmd(uint8_t idx, const uint8_t * packet, uint16_t len);
+bool tuh_bth_send_acl(uint8_t idx, const uint8_t* packet, uint16_t len, tuh_bth_complete_cb_t complete_cb, uintptr_t arg);
+bool tuh_bth_send_cmd(uint8_t idx, const uint8_t * packet, uint16_t len, tuh_bth_complete_cb_t complete_cb, uintptr_t arg);
 bool tuh_bth_can_send_now(uint8_t idx);
 //--------------------------------------------------------------------+
 // BTH APPLICATION CALLBACKS
