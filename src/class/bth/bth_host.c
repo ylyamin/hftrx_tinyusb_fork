@@ -232,10 +232,9 @@ bool bthh_xfer_cb(uint8_t dev_addr, uint8_t ep_addr, xfer_result_t event, uint32
 	}
   }
   else if ( ep_addr == p_bth->ep_acl_in ) {
-		uint16_t acl_size;
 	  p_bth->hci_acl_in_offset += xferred_bytes;
       if (p_bth->hci_acl_in_offset < 4) return true;
-      acl_size = 4 + tu_unaligned_read16(p_bth->hci_acl_in_packet + 2);
+      const uint16_t acl_size = 4 + tu_le16toh( tu_unaligned_read16(p_bth->hci_acl_in_packet + 2) );
       // acl complete
       if (p_bth->hci_acl_in_offset > acl_size){
           PRINTF("Extra HCI EVENT!\n");
