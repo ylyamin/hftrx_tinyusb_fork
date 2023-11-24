@@ -44,8 +44,8 @@ typedef bool (*tuh_bth_complete_cb_t)(uint8_t dev_addr, tuh_bth_complete_data_t 
 
 // Write to bth interface
 // Read from bth interface
-bool tuh_bth_send_acl(uint8_t idx, const uint8_t* packet, uint16_t len, tuh_bth_complete_cb_t complete_cb, uintptr_t arg);
-bool tuh_bth_send_cmd(uint8_t idx, const uint8_t * packet, uint16_t len, tuh_bth_complete_cb_t complete_cb, uintptr_t arg);
+bool tuh_bth_send_acl(uint8_t idx, const uint8_t* packet, uint16_t len, tuh_xfer_cb_t complete_cb, uintptr_t arg);
+bool tuh_bth_send_cmd(uint8_t idx, const uint8_t * packet, uint16_t len, tuh_xfer_cb_t complete_cb, uintptr_t arg);
 bool tuh_bth_can_send_now(uint8_t idx);
 //--------------------------------------------------------------------+
 // BTH APPLICATION CALLBACKS
