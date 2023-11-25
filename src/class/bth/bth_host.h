@@ -63,7 +63,6 @@ TU_ATTR_WEAK extern void tuh_bth_rx_acl_cb(uint8_t idx, uint8_t* buffer, uint16_
 
 // Invoked when a TX is complete and therefore space becomes available in TX buffer
 TU_ATTR_WEAK extern void tuh_bth_send_acl_cb(uint8_t idx);
-TU_ATTR_WEAK extern void tuh_bth_send_cmd_cb(uint8_t idx);
 
 // Invoked when received notificaion
 TU_ATTR_WEAK extern void tuh_bth_event_cb(uint8_t idx, uint8_t * buffer, uint16_t size);
