@@ -50,10 +50,14 @@
   #define FRAMELIST_SIZE_BIT_VALUE      7u
   #define FRAMELIST_SIZE_USBCMD_VALUE   (((FRAMELIST_SIZE_BIT_VALUE &  3) << EHCI_USBCMD_FRAMELIST_SIZE_SHIFT) | \
                                          ((FRAMELIST_SIZE_BIT_VALUE >> 2) << EHCI_USBCMD_CHIPIDEA_FRAMELIST_SIZE_MSB_SHIFT))
+#elif (CFG_TUSB_MCU == OPT_MCU_F1C100S)
+  // STD EHCI: 1024 elements
+  #define FRAMELIST_SIZE_BIT_VALUE      0u
+  #define FRAMELIST_SIZE_USBCMD_VALUE   ((FRAMELIST_SIZE_BIT_VALUE &  3) << EHCI_USBCMD_FRAMELIST_SIZE_SHIFT)
 #else
   // STD EHCI: 256 elements
   #define FRAMELIST_SIZE_BIT_VALUE      2u
-  #define FRAMELIST_SIZE_USBCMD_VALUE   ((FRAMELIST_SIZE_BIT_VALUE &  3) << EHCI_USBCMD_POS_FRAMELIST_SIZE)
+  #define FRAMELIST_SIZE_USBCMD_VALUE   ((FRAMELIST_SIZE_BIT_VALUE &  3) << EHCI_USBCMD_FRAMELIST_SIZE_SHIFT)
 #endif
 
 #define FRAMELIST_SIZE                  (1024 >> FRAMELIST_SIZE_BIT_VALUE)
@@ -69,7 +73,7 @@ typedef struct
   // TODO only implement 1 ms & 2 ms & 4 ms, 8 ms (framelist)
   // [0] : 1ms, [1] : 2ms, [2] : 4ms, [3] : 8 ms
   // TODO better implementation without dummy head to save SRAM
-  ehci_qhd_t period_head_arr[4];
+  ehci_qhd_t period_head_arr[11];
 
   // Note control qhd of dev0 is used as head of async list
   struct {
@@ -230,7 +234,11 @@ bool hcd_port_connect_status(uint8_t rhport)
 tusb_speed_t hcd_port_speed_get(uint8_t rhport)
 {
   (void) rhport;
+#if (CFG_TUSB_MCU == OPT_MCU_F1C100S)
+  return TUSB_SPEED_HIGH;	// STD EHCI: HS only
+#else
   return (tusb_speed_t) ehci_data.regs->portsc_bm.nxp_port_speed; // NXP specific port speed
+#endif
 }
 
 // Close all opened endpoint belong to this device
@@ -246,7 +254,8 @@ void hcd_device_close(uint8_t rhport, uint8_t daddr)
 
   // Remove from all interval period list
   for(uint8_t i = 0; i < TU_ARRAY_SIZE(ehci_data.period_head_arr); i++) {
-    list_remove_qhd_by_daddr((ehci_link_t *) &ehci_data.period_head_arr[i], daddr);
+    ///TODO: fix
+    /// list_remove_qhd_by_daddr((ehci_link_t *) &ehci_data.period_head_arr[i], daddr);
   }
 
   // Async doorbell (EHCI 4.8.2 for operational details)
@@ -269,10 +278,10 @@ static void init_periodic_list(uint8_t rhport) {
   // 3 --> period_head_arr[3] (8ms)
 
   ehci_link_t * const framelist  = ehci_data.period_framelist;
-  ehci_link_t * const head_1ms = (ehci_link_t *) &ehci_data.period_head_arr[0];
-  ehci_link_t * const head_2ms = (ehci_link_t *) &ehci_data.period_head_arr[1];
-  ehci_link_t * const head_4ms = (ehci_link_t *) &ehci_data.period_head_arr[2];
-  ehci_link_t * const head_8ms = (ehci_link_t *) &ehci_data.period_head_arr[3];
+  ehci_link_t * const head_1ms = list_get_period_head(rhport, 1); //(ehci_link_t *) &ehci_data.period_head_arr[0];
+  ehci_link_t * const head_2ms = list_get_period_head(rhport, 2); //(ehci_link_t *) &ehci_data.period_head_arr[1];
+  ehci_link_t * const head_4ms = list_get_period_head(rhport, 4); //(ehci_link_t *) &ehci_data.period_head_arr[2];
+  ehci_link_t * const head_8ms = list_get_period_head(rhport, 8); //(ehci_link_t *) &ehci_data.period_head_arr[3];
 
   for (uint32_t i = 0; i < FRAMELIST_SIZE; i++) {
     framelist[i].address = (uint32_t) head_1ms;
@@ -343,6 +352,7 @@ bool ehci_init(uint8_t rhport, uint32_t capability_reg, uint32_t operatial_reg)
                    FRAMELIST_SIZE_USBCMD_VALUE;
 
   //------------- ConfigFlag Register (skip) -------------//
+  regs->config_flag = 1;
 
   // enable port power bit in portsc. The function of this bit depends on the value of the Port
   // Power Control (PPC) field in the HCSPARAMS register.
@@ -402,7 +412,8 @@ bool hcd_edpt_open(uint8_t rhport, uint8_t dev_addr, tusb_desc_endpoint_t const 
     break;
 
     case TUSB_XFER_INTERRUPT:
-      list_head = list_get_period_head(rhport, p_qhd->interval_ms);
+        ///TODO: fix
+      //list_head = list_get_period_head(rhport, TU_MIN(p_qhd->interval_ms, 8));
     break;
 
     case TUSB_XFER_ISOCHRONOUS:
@@ -625,11 +636,12 @@ void proccess_async_xfer_isr(ehci_qhd_t * const list_head)
 TU_ATTR_ALWAYS_INLINE static inline
 void process_period_xfer_isr(uint8_t rhport, uint32_t interval_ms)
 {
-  uint32_t const period_1ms_addr = (uint32_t) list_get_period_head(rhport, 1u);
+  uintptr_t const period_1ms_addr = (uint32_t) list_get_period_head(rhport, 1u);
+  uintptr_t const period_8ms_addr = (uint32_t) list_get_period_head(rhport, 8u);
   ehci_link_t next_link = *list_get_period_head(rhport, interval_ms);
 
   while (!next_link.terminate) {
-    if (interval_ms > 1 && period_1ms_addr == tu_align32(next_link.address)) {
+    if (interval_ms > 8 || period_8ms_addr == tu_align32(next_link.address)) {
       // 1ms period list is end of list for all larger interval
       break;
     }
@@ -713,7 +725,11 @@ void hcd_int_handler(uint8_t rhport, bool in_isr) {
 // Get head of periodic list
 TU_ATTR_ALWAYS_INLINE static inline ehci_link_t* list_get_period_head(uint8_t rhport, uint32_t interval_ms) {
   (void) rhport;
-  return (ehci_link_t*) &ehci_data.period_head_arr[ tu_log2( tu_min32(FRAMELIST_SIZE, interval_ms) ) ];
+  const unsigned ix = tu_log2( tu_min32(FRAMELIST_SIZE, interval_ms) );
+  //PRINTF("interval_ms=%u, ix=%u, as=%u\n", (unsigned) interval_ms, ix, TU_ARRAY_SIZE(ehci_data.period_head_arr));
+
+  TU_ASSERT(TU_ARRAY_SIZE(ehci_data.period_head_arr) > ix );
+  return (ehci_link_t*) &ehci_data.period_head_arr[ix];
 }
 
 // Get head of async list
