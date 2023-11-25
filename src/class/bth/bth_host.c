@@ -221,9 +221,12 @@ bool tuh_bth_can_send_now(uint8_t idx) {
 
 static void bthh_set_config_done(tuh_xfer_t* xfer0)
 {
-	uint8_t const idx = 0;
-	TU_LOG_DRV("bthh_set_config_done: dev_addr=%u, idx=%u\r\n", xfer0->daddr, idx);
-	bthh_interface_t * const p_bth = get_itf(idx);
+	  //uintptr_t const state = xfer0->user_data;
+	  uint8_t const itf_num = (uint8_t) tu_le16toh(xfer0->setup->wIndex);
+	  uint8_t const daddr   = xfer0->daddr;
+
+	  uint8_t const idx       = tuh_bth_itf_get_index(daddr, itf_num);
+	  bthh_interface_t* p_bth = get_itf(idx);
 
 	// Prepare for incoming data
 	p_bth->hci_acl_in_offset = 0;
