@@ -262,6 +262,8 @@ bool bthh_set_config(uint8_t dev_addr, uint8_t itf_num)
 bool bthh_xfer_cb(uint8_t dev_addr, uint8_t ep_addr, xfer_result_t event, uint32_t xferred_bytes) {
   // TODO handle stall response, retry failed transfer ...
   //TU_LOG_DRV("bthh_xfer_cb: event=%d, dev_addr=%u, ep_addr=0x%02X, xferred_bytes=%u\r\n", (int) event, (unsigned) dev_addr, (unsigned) ep_addr, (unsigned) xferred_bytes);
+  if (event != XFER_RESULT_SUCCESS)
+    return false;
   TU_ASSERT(event == XFER_RESULT_SUCCESS, false);
 
   uint8_t const idx = get_idx_by_ep_addr(dev_addr, ep_addr);
