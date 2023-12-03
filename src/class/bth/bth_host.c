@@ -219,21 +219,20 @@ bool tuh_bth_can_send_now(uint8_t idx) {
 			! usbh_edpt_busy(p_bth->daddr, p_bth->stream.acl_out.ep_addr);
 }
 
-bool bthh_set_config(uint8_t dev_addr, uint8_t itf_num)
+static void bthh_set_config_done(tuh_xfer_t* xfer0)
 {
-	uint8_t const idx = tuh_bth_itf_get_index(dev_addr, itf_num);
-	//TU_LOG_DRV("bthh_set_config: dev_addr=%u, itf_num=%u, idx=%u\r\n", dev_addr, itf_num, idx);
-	bthh_interface_t * const p_bth = get_itf(idx);
-	//TU_LOG_DRV("bthh_set_config: idx=%u\r\n", idx);
+	//uintptr_t const state = xfer0->user_data;
+	uint8_t const itf_num = (uint8_t) tu_le16toh(xfer0->setup->wIndex);
+	uint8_t const daddr   = xfer0->daddr;
+
+	uint8_t const idx       = tuh_bth_itf_get_index(daddr, itf_num);
+	bthh_interface_t* p_bth = get_itf(idx);
 
 	// Prepare for incoming data
-	{
-		p_bth->hci_acl_in_offset = 0;
-	    const uint16_t acl_in_transfer_size = TU_MIN(p_bth->acl_in_len, HCI_ACL_BUFFER_SIZE - p_bth->hci_acl_in_offset);
-	    TU_ASSERT(usbh_edpt_xfer(p_bth->daddr, p_bth->ep_acl_in, &p_bth->hci_acl_in_packet[p_bth->hci_acl_in_offset], acl_in_transfer_size), false);
-	}
+	p_bth->hci_acl_in_offset = 0;
+    const uint16_t acl_in_transfer_size = TU_MIN(p_bth->acl_in_len, HCI_ACL_BUFFER_SIZE - p_bth->hci_acl_in_offset);
+    TU_ASSERT(usbh_edpt_xfer(p_bth->daddr, p_bth->ep_acl_in, &p_bth->hci_acl_in_packet[p_bth->hci_acl_in_offset], acl_in_transfer_size), );
 
-	// Prepare for notifications
 	{
 		tuh_xfer_t *const xfer = &p_bth->ep_notif_xfer;
 		p_bth->hci_event_offset = 0;
@@ -244,12 +243,22 @@ bool bthh_set_config(uint8_t dev_addr, uint8_t itf_num)
 		xfer->complete_cb = NULL;
 		xfer->user_data = 0;//(uintptr_t) p_bth->hci_event; // since buffer is not available in callback; use user data to store the buffer
 		// submit transfer for this EP
-		TU_ASSERT(tuh_edpt_xfer(xfer), false);
+		TU_ASSERT(tuh_edpt_xfer(xfer), );
 	}
 	// notify usbh that driver enumeration is complete
-	usbh_driver_set_config_complete(p_bth->daddr, p_bth->itf_num);
+	usbh_driver_set_config_complete(xfer0->daddr, p_bth->itf_num);
 
 	if (tuh_bth_mount_cb) tuh_bth_mount_cb(idx);
+}
+
+bool bthh_set_config(uint8_t dev_addr, uint8_t itf_num)
+{
+	uint8_t const idx = tuh_bth_itf_get_index(dev_addr, itf_num);
+	//TU_LOG_DRV("bthh_set_config: dev_addr=%u, itf_num=%u, idx=%u\r\n", dev_addr, itf_num, idx);
+	bthh_interface_t * const p_bth = get_itf(idx);
+	//TU_LOG_DRV("bthh_set_config: idx=%u\r\n", idx);
+	TU_ASSERT(bth_send_command(p_bth, NULL, 0, bthh_set_config_done, 0), false);		// RESET command
+
 	return true;
 }
 
