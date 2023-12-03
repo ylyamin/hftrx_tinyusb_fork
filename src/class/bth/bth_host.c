@@ -221,12 +221,12 @@ bool tuh_bth_can_send_now(uint8_t idx) {
 
 static void bthh_set_config_done(tuh_xfer_t* xfer0)
 {
-	  //uintptr_t const state = xfer0->user_data;
-	  uint8_t const itf_num = (uint8_t) tu_le16toh(xfer0->setup->wIndex);
-	  uint8_t const daddr   = xfer0->daddr;
+	//uintptr_t const state = xfer0->user_data;
+	uint8_t const itf_num = (uint8_t) tu_le16toh(xfer0->setup->wIndex);
+	uint8_t const daddr   = xfer0->daddr;
 
-	  uint8_t const idx       = tuh_bth_itf_get_index(daddr, itf_num);
-	  bthh_interface_t* p_bth = get_itf(idx);
+	uint8_t const idx       = tuh_bth_itf_get_index(daddr, itf_num);
+	bthh_interface_t* p_bth = get_itf(idx);
 
 	// Prepare for incoming data
 	p_bth->hci_acl_in_offset = 0;
@@ -240,7 +240,7 @@ static void bthh_set_config_done(tuh_xfer_t* xfer0)
 		xfer->ep_addr = p_bth->ep_notif;
 		xfer->buflen = TU_MIN(sizeof p_bth->hci_event - p_bth->hci_event_offset, p_bth->event_in_len);
 		xfer->buffer = p_bth->hci_event + p_bth->hci_event_offset;
-		xfer->complete_cb = bthh_set_config_done;
+		xfer->complete_cb = NULL;
 		xfer->user_data = 0;//(uintptr_t) p_bth->hci_event; // since buffer is not available in callback; use user data to store the buffer
 		// submit transfer for this EP
 		TU_ASSERT(tuh_edpt_xfer(xfer), );
