@@ -89,20 +89,20 @@
 //---------------------------------------------------------------
 //   reg base
 //---------------------------------------------------------------
-#define  USBC0_BASE                 0x01c13000
-#define  USBC1_BASE                 0x01c14000
-#define  USBC2_BASE                 0x01c1E000
+#define  USBC0_BASE                 ((uintptr_t) WITHUSBHW_DEVICE)
+//#define  USBC1_BASE                 0x01c14000
+//#define  USBC2_BASE                 0x01c1E000
 
-//Some reg within musb
-#define USBPHY_CLK_REG 		0x01c200CC
-#define USBPHY_CLK_RST_BIT 0
-#define USBPHY_CLK_GAT_BIT 1
-
-#define BUS_CLK_RST_REG	0x01c202c0 //Bus Clock Reset Register Bit24 : USB CLK RST
-#define BUS_RST_USB_BIT	24
-
-#define BUS_CLK_GATE0_REG	0x01c20060 //Bus Clock Gating Register Bit24 : USB CLK GATE 0: Mask 1 : Pass
-#define BUS_CLK_USB_BIT	24
+////Some reg within musb
+//#define USBPHY_CLK_REG 		0x01c200CC
+//#define USBPHY_CLK_RST_BIT 0
+//#define USBPHY_CLK_GAT_BIT 1
+//
+//#define BUS_CLK_RST_REG	0x01c202c0 //Bus Clock Reset Register Bit24 : USB CLK RST
+//#define BUS_RST_USB_BIT	24
+//
+//#define BUS_CLK_GATE0_REG	0x01c20060 //Bus Clock Gating Register Bit24 : USB CLK GATE 0: Mask 1 : Pass
+//#define BUS_CLK_USB_BIT	24
 
 //#define USB_INTR
 

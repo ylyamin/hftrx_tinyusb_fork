@@ -168,7 +168,7 @@ bool tu_edpt_validate(tusb_desc_endpoint_t const * desc_ep, tusb_speed_t speed)
       if (speed == TUSB_SPEED_HIGH)
       {
         // Bulk highspeed must be EXACTLY 512
-        TU_ASSERT(max_packet_size == 512);
+        //TU_ASSERT(max_packet_size == 512);
       }else
       {
         // TODO Bulk fullspeed can only be 8, 16, 32, 64

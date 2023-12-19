@@ -31,11 +31,12 @@
 
 #if CFG_TUD_ENABLED && CFG_TUSB_MCU == OPT_MCU_F1C100S
 
+#include "hardware.h"
 #include "osal/osal.h"
-#include <f1c100s-irq.h>
+//#include <f1c100s-irq.h>
 #include <device/dcd.h>
 #include "musb_def.h"
-#include "bsp/board.h"
+//#include "bsp/board.h"
 
 typedef uint32_t u32;
 typedef uint16_t u16;
@@ -106,34 +107,34 @@ static void delay_ms(uint32_t ms)
   osal_task_delay(ms);
 #endif
 }
-
-static void USBC_HardwareReset(void)
-{
-  // Reset phy and controller
-  USBC_REG_set_bit_l(USBPHY_CLK_RST_BIT, USBPHY_CLK_REG);
-	USBC_REG_set_bit_l(BUS_RST_USB_BIT, BUS_CLK_RST_REG);
-  delay_ms(2);
-
-	USBC_REG_set_bit_l(USBPHY_CLK_GAT_BIT, USBPHY_CLK_REG);
-  USBC_REG_set_bit_l(USBPHY_CLK_RST_BIT, USBPHY_CLK_REG);
-
-	USBC_REG_set_bit_l(BUS_CLK_USB_BIT, BUS_CLK_GATE0_REG);
-	USBC_REG_set_bit_l(BUS_RST_USB_BIT, BUS_CLK_RST_REG);
-}
-
-static void USBC_PhyConfig(void)
-{
-	/* Regulation 45 ohms */
-	usb_phy_write(0x0c, 0x01, 1);
-
-	/* adjust PHY's magnitude and rate */
-	usb_phy_write(0x20, 0x14, 5);
-
-	/* threshold adjustment disconnect */
-	usb_phy_write(0x2a, 3, 2);
-
-	return;
-}
+//
+//static void USBC_HardwareReset(void)
+//{
+//  // Reset phy and controller
+//  USBC_REG_set_bit_l(USBPHY_CLK_RST_BIT, USBPHY_CLK_REG);
+//	USBC_REG_set_bit_l(BUS_RST_USB_BIT, BUS_CLK_RST_REG);
+//  delay_ms(2);
+//
+//	USBC_REG_set_bit_l(USBPHY_CLK_GAT_BIT, USBPHY_CLK_REG);
+//  USBC_REG_set_bit_l(USBPHY_CLK_RST_BIT, USBPHY_CLK_REG);
+//
+//	USBC_REG_set_bit_l(BUS_CLK_USB_BIT, BUS_CLK_GATE0_REG);
+//	USBC_REG_set_bit_l(BUS_RST_USB_BIT, BUS_CLK_RST_REG);
+//}
+//
+//static void USBC_PhyConfig(void)
+//{
+//	/* Regulation 45 ohms */
+//	usb_phy_write(0x0c, 0x01, 1);
+//
+//	/* adjust PHY's magnitude and rate */
+//	usb_phy_write(0x20, 0x14, 5);
+//
+//	/* threshold adjustment disconnect */
+//	usb_phy_write(0x2a, 3, 2);
+//
+//	return;
+//}
 
 static void USBC_ConfigFIFO_Base(void)
 {
@@ -867,9 +868,10 @@ static void usb_isr_handler(void) {
 
 void dcd_init(uint8_t rhport)
 {
+	usbdevice_clk_init();
   dcd_disconnect(rhport);
-  USBC_HardwareReset();
-  USBC_PhyConfig();
+  //USBC_HardwareReset();
+  //USBC_PhyConfig();
   USBC_ConfigFIFO_Base();
   USBC_EnableDpDmPullUp();
   USBC_ForceIdToHigh(); // Force device mode
@@ -889,8 +891,9 @@ void dcd_init(uint8_t rhport)
     | (1 << USBC_BP_INTUSBE_EN_SOF)
     | (1 << USBC_BP_INTUSBE_EN_DISCONNECT)
     , USBC_REG_INTUSBE(USBC0_BASE));
-  f1c100s_intc_clear_pend(F1C100S_IRQ_USBOTG);
-  f1c100s_intc_set_isr(F1C100S_IRQ_USBOTG, usb_isr_handler);
+
+  //f1c100s_intc_clear_pend(F1C100S_IRQ_USBOTG);
+  //f1c100s_intc_set_isr(F1C100S_IRQ_USBOTG, usb_isr_handler);
 
   dcd_connect(rhport);
 }
@@ -920,23 +923,27 @@ void dcd_sof_enable(uint8_t rhport, bool en)
 void dcd_int_enable(uint8_t rhport)
 {
   (void)rhport;
-  f1c100s_intc_enable_irq(F1C100S_IRQ_USBOTG);
+  arm_hardware_enable_handler(USB0_DEVICE_IRQn);
+  //f1c100s_intc_enable_irq(F1C100S_IRQ_USBOTG);
 }
 
 static void musb_int_mask(void)
 {
-  f1c100s_intc_mask_irq(F1C100S_IRQ_USBOTG);
+  //f1c100s_intc_mask_irq(F1C100S_IRQ_USBOTG);
+	arm_hardware_disable_handler(USB0_DEVICE_IRQn);
 }
 
 void dcd_int_disable(uint8_t rhport)
 {
   (void)rhport;
-  f1c100s_intc_disable_irq(F1C100S_IRQ_USBOTG);
+  arm_hardware_disable_handler(USB0_DEVICE_IRQn);
+  //f1c100s_intc_disable_irq(F1C100S_IRQ_USBOTG);
 }
 
 static void musb_int_unmask(void)
 {
-  f1c100s_intc_unmask_irq(F1C100S_IRQ_USBOTG);
+  //f1c100s_intc_unmask_irq(F1C100S_IRQ_USBOTG);
+  arm_hardware_enable_handler(USB0_DEVICE_IRQn);
 }
 
 // Receive Set Address request, mcu port must also include status IN response
