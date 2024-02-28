@@ -382,7 +382,7 @@
 // Allwinner
 //--------------------------------------------------------------------+
 #elif TU_CHECK_MCU(OPT_MCU_F1C100S)
-  #define TUP_DCD_ENDPOINT_MAX    4
+  //#define TUP_DCD_ENDPOINT_MAX    4
 
 //------------- WCH -------------//
 #elif TU_CHECK_MCU(OPT_MCU_CH32V307)
