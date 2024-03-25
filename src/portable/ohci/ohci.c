@@ -46,7 +46,7 @@
 //--------------------------------------------------------------------+
 // MACRO CONSTANT TYPEDEF
 //--------------------------------------------------------------------+
-#define OHCI_REG               ((ohci_registers_t *) LPC_USB_BASE)
+#define OHCI_REG               ((ohci_registers_t *) WITHUSBHW_OHCI)
 
 enum {
   OHCI_CONTROL_FUNCSTATE_RESET = 0,
