@@ -196,7 +196,7 @@ bool hcd_init(uint8_t rhport)
   tu_memclr(&ohci_data, sizeof(ohci_data_t));
   for(uint8_t i=0; i<32; i++)
   { // assign all interrupt pointers to period head ed
-    ohci_data.hcca.interrupt_table[i] = (uint32_t) _phys_addr(&ohci_data.period_head_ed);
+    ohci_data.hcca.interrupt_table[i] = (uintptr_t) _phys_addr(&ohci_data.period_head_ed);
   }
 
   ohci_data.control[0].ed.skip  = 1;
@@ -230,9 +230,9 @@ bool hcd_init(uint8_t rhport)
   while( OHCI_REG->command_status_bit.controller_reset ) {} // should not take longer than 10 us
 
   //------------- init ohci registers -------------//
-  OHCI_REG->control_head_ed = (uint32_t) _phys_addr(&ohci_data.control[0].ed);
-  OHCI_REG->bulk_head_ed    = (uint32_t) _phys_addr(&ohci_data.bulk_head_ed);
-  OHCI_REG->hcca            = (uint32_t) _phys_addr(&ohci_data.hcca);
+  OHCI_REG->control_head_ed = (uintptr_t) _phys_addr(&ohci_data.control[0].ed);
+  OHCI_REG->bulk_head_ed    = (uintptr_t) _phys_addr(&ohci_data.bulk_head_ed);
+  OHCI_REG->hcca            = (uintptr_t) _phys_addr(&ohci_data.hcca);
 
   OHCI_REG->interrupt_disable = OHCI_REG->interrupt_enable; // disable all interrupts
   OHCI_REG->interrupt_status  = OHCI_REG->interrupt_status; // clear current set bits
@@ -407,7 +407,7 @@ static ohci_ed_t * ed_find_free(void)
 static void ed_list_insert(ohci_ed_t * p_pre, ohci_ed_t * p_ed)
 {
   p_ed->next = p_pre->next;
-  p_pre->next = (uint32_t) _phys_addr(p_ed);
+  p_pre->next = (uintptr_t) _phys_addr(p_ed);
 }
 
 static void ed_list_remove_by_addr(ohci_ed_t * p_head, uint8_t dev_addr)
@@ -416,7 +416,7 @@ static void ed_list_remove_by_addr(ohci_ed_t * p_head, uint8_t dev_addr)
 
   while( p_prev->next )
   {
-    ohci_ed_t* ed = (ohci_ed_t*) _virt_addr((void *)p_prev->next);
+    ohci_ed_t* ed = (ohci_ed_t*) _virt_addr((void *) (uintptr_t) p_prev->next);
 
     if (ed->dev_addr == dev_addr)
     {
@@ -427,12 +427,12 @@ static void ed_list_remove_by_addr(ohci_ed_t * p_head, uint8_t dev_addr)
       p_prev->next = ed->next;
 
       // point the removed ED's next pointer to list head to make sure HC can always safely move away from this ED
-      ed->next = (uint32_t) _phys_addr(p_head);
+      ed->next = (uintptr_t) _phys_addr(p_head);
       ed->used = 0;
       ed->skip = 0;
     }else
     {
-      p_prev = (ohci_ed_t*) _virt_addr((void *)p_prev->next);
+      p_prev = (ohci_ed_t*) _virt_addr((void *) (uintptr_t) p_prev->next);
     }
   }
 }
@@ -452,11 +452,11 @@ static void td_insert_to_ed(ohci_ed_t* p_ed, ohci_gtd_t * p_gtd)
   // tail is always NULL
   if ( tu_align16(p_ed->td_head.address) == 0 )
   { // TD queue is empty --> head = TD
-    p_ed->td_head.address |= (uint32_t) _phys_addr(p_gtd);
+    p_ed->td_head.address |= (uintptr_t) _phys_addr(p_gtd);
   }
   else
   { // TODO currently only support queue up to 2 TD each endpoint at a time
-    ((ohci_gtd_t*) tu_align16((uint32_t)_virt_addr((void *)p_ed->td_head.address)))->next = (uint32_t) _phys_addr(p_gtd);
+    ((ohci_gtd_t*) tu_align16((uintptr_t)_virt_addr((void *) (uintptr_t) p_ed->td_head.address)))->next = (uintptr_t) _phys_addr(p_gtd);
   }
   ohci_data_clean_invalidate();
 }
@@ -516,7 +516,7 @@ bool hcd_setup_send(uint8_t rhport, uint8_t dev_addr, uint8_t const setup_packet
   qtd->delay_interrupt = OHCI_INT_ON_COMPLETE_YES;
 
   //------------- Attach TDs list to Control Endpoint -------------//
-  ed->td_head.address = (uint32_t) _phys_addr(qtd);
+  ed->td_head.address = (uintptr_t) _phys_addr(qtd);
 
   ohci_data_clean_invalidate();
   OHCI_REG->command_status_bit.control_list_filled = 1;
@@ -548,7 +548,7 @@ bool hcd_edpt_xfer(uint8_t rhport, uint8_t dev_addr, uint8_t ep_addr, uint8_t * 
     gtd->data_toggle     = GTD_DT_DATA1; // Both Data and Ack stage start with DATA1
     gtd->delay_interrupt = OHCI_INT_ON_COMPLETE_YES;
 
-    ed->td_head.address = (uint32_t) _phys_addr(gtd);
+    ed->td_head.address = (uintptr_t) _phys_addr(gtd);
 
     ohci_data_clean_invalidate();
     OHCI_REG->command_status_bit.control_list_filled = 1;
@@ -609,10 +609,10 @@ static ohci_td_item_t* list_reverse(ohci_td_item_t* td_head)
   while(td_head != NULL)
   {
     td_head = _virt_addr(td_head);
-    uint32_t next = td_head->next;
+    uintptr_t next = td_head->next;
 
     // make current's item become reverse's first item
-    td_head->next = (uint32_t) td_reverse_head;
+    td_head->next = (uintptr_t) td_reverse_head;
     td_reverse_head  = _phys_addr(td_head);
 
     td_head = (ohci_td_item_t*) next; // advance to next item
@@ -623,7 +623,7 @@ static ohci_td_item_t* list_reverse(ohci_td_item_t* td_head)
 
 static inline bool gtd_is_control(ohci_gtd_t const * const p_qtd)
 {
-  return ((uint32_t) p_qtd) < ((uint32_t) ohci_data.gtd_pool); // check ohci_data_t for memory layout
+  return ((uintptr_t) p_qtd) < ((uintptr_t) ohci_data.gtd_pool); // check ohci_data_t for memory layout
 }
 
 static inline ohci_ed_t* gtd_get_ed(ohci_gtd_t const * const p_qtd)
@@ -653,7 +653,7 @@ static void done_queue_isr(uint8_t hostid)
   (void) hostid;
 
   // done head is written in reversed order of completion --> need to reverse the done queue first
-  ohci_td_item_t* td_head = list_reverse ( (ohci_td_item_t*) tu_align16(ohci_data.hcca.done_head) );
+  ohci_td_item_t* td_head = list_reverse ( (ohci_td_item_t*) tu_align16((uintptr_t) ohci_data.hcca.done_head) );
   ohci_data.hcca.done_head = 0;
 
   while( td_head != NULL )
@@ -690,7 +690,7 @@ static void done_queue_isr(uint8_t hostid)
       hcd_event_xfer_complete(ed->dev_addr, tu_edpt_addr(ed->ep_number, dir), xferred_bytes, event, true);
     }
 
-    td_head = (ohci_td_item_t*) _virt_addr((void *)td_head->next);
+    td_head = (ohci_td_item_t*) _virt_addr((void *) (uintptr_t) td_head->next);
   }
   ohci_data_clean_invalidate();
 }
