@@ -71,29 +71,33 @@ bool hcd_dcache_clean_invalidate(void const* addr, uint32_t data_size) {
 //--------------------------------------------------------------------+
 
 bool hcd_init(uint8_t rhport) {
-  ci_hs_regs_t *hcd_reg = CI_HS_REG(rhport);
+	  ci_hs_regs_t *hcd_reg = CI_HS_REG(rhport);
 
-  // Reset controller
-  hcd_reg->USBCMD |= USBCMD_RESET;
-  while ( hcd_reg->USBCMD & USBCMD_RESET ) {}
+	  // Reset controller
+	  hcd_reg->USBCMD |= USBCMD_RESET;
+	  while ( hcd_reg->USBCMD & USBCMD_RESET ) {}
 
-  // Set mode to device, must be set immediately after reset
-#if CFG_TUSB_MCU == OPT_MCU_LPC18XX || CFG_TUSB_MCU == OPT_MCU_LPC43XX
-  // LPC18XX/43XX need to set VBUS Power Select to HIGH
-  // RHPORT1 is fullspeed only (need external PHY for Highspeed)
-  hcd_reg->USBMODE = USBMODE_CM_HOST | USBMODE_VBUS_POWER_SELECT;
-  if ( rhport == 1 ) hcd_reg->PORTSC1 |= PORTSC1_FORCE_FULL_SPEED;
-#else
-  hcd_reg->USBMODE = USBMODE_CM_HOST;
-#endif
+	  // Set mode to device, must be set immediately after reset
+	#if CFG_TUSB_MCU == OPT_MCU_LPC18XX || CFG_TUSB_MCU == OPT_MCU_LPC43XX
+	  // LPC18XX/43XX need to set VBUS Power Select to HIGH
+	  // RHPORT1 is fullspeed only (need external PHY for Highspeed)
+	  hcd_reg->USBMODE = USBMODE_CM_HOST | USBMODE_VBUS_POWER_SELECT;
+	  if ( rhport == 1 ) hcd_reg->PORTSC1 |= PORTSC1_FORCE_FULL_SPEED;
+	#else
+	  //hcd_reg->USBMODE = USBMODE_CM_HOST;
+	#endif
 
-  // FIXME force full speed, still have issue with Highspeed enumeration
-  // probably due to physical connection bouncing when plug/unplug
-  // 1. Have issue when plug/unplug devices, maybe the port is not reset properly
-  // 2. Also does not seems to detect disconnection
-  hcd_reg->PORTSC1 |= PORTSC1_FORCE_FULL_SPEED;
+	  // FIXME force full speed, still have issue with Highspeed enumeration
+	  // probably due to physical connection bouncing when plug/unplug
+	  // 1. Have issue when plug/unplug devices, maybe the port is not reset properly
+	  // 2. Also does not seems to detect disconnection
+	  //hcd_reg->PORTSC1 |= PORTSC1_FORCE_FULL_SPEED;
 
-  return ehci_init(rhport, (uint32_t) &hcd_reg->CAPLENGTH, (uint32_t) &hcd_reg->USBCMD);
+		const uintptr_t opregspacebase = (uintptr_t) CI_HS_REG(rhport)
+				+ (* (volatile uint32_t *) CI_HS_REG(rhport) & 0x00FF);
+
+		  //return ehci_init(rhport, (uint32_t) &hcd_reg->CAPLENGTH, (uint32_t) &hcd_reg->USBCMD);
+		return ehci_init(rhport, (uintptr_t) CI_HS_REG(rhport), opregspacebase);
 }
 
 void hcd_int_enable(uint8_t rhport) {
