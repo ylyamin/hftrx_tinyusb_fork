@@ -59,7 +59,7 @@ bool hcd_dcache_clean_invalidate(void const* addr, uint32_t data_size) {
 #include "ci_hs_lpc18_43.h"
 
 #else
-#error "Unsupported MCUs"
+	//#error "Unsupported MCUs"
 #endif
 
 //--------------------------------------------------------------------+
