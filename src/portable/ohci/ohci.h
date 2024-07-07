@@ -83,13 +83,13 @@ typedef struct TU_ATTR_ALIGNED(16)
   volatile uint32_t condition_code : 4;
 
 	// Word 1
-	uint8_t* volatile current_buffer_pointer;
+	volatile uint32_t current_buffer_pointer;
 
 	// Word 2 : next TD
 	volatile uint32_t next;
 
 	// Word 3
-	uint8_t* buffer_end;
+	volatile uint32_t buffer_end;
 } ohci_gtd_t;
 
 TU_VERIFY_STATIC( sizeof(ohci_gtd_t) == 16, "size is not correct" );
@@ -111,7 +111,7 @@ typedef struct TU_ATTR_ALIGNED(16)
 	uint32_t                   : 2;
 
 	// Word 1
-	uint32_t td_tail;
+	volatile uint32_t td_tail;
 
 	// Word 2
 	volatile union {
@@ -124,7 +124,7 @@ typedef struct TU_ATTR_ALIGNED(16)
 	}td_head;
 
 	// Word 3: next ED
-	uint32_t next;
+	volatile uint32_t next;
 } ohci_ed_t;
 
 TU_VERIFY_STATIC( sizeof(ohci_ed_t) == 16, "size is not correct" );
@@ -140,13 +140,13 @@ typedef struct TU_ATTR_ALIGNED(32)
   volatile uint32_t condition_code : 4;
 
 	/*---------- Word 2 ----------*/
-	uint32_t buffer_page0;	// 12 lsb bits can be used
+    volatile uint32_t buffer_page0;	// 12 lsb bits can be used
 
 	/*---------- Word 3 ----------*/
 	volatile uint32_t next;
 
 	/*---------- Word 4 ----------*/
-	uint32_t buffer_end;
+	volatile uint32_t buffer_end;
 
 	/*---------- Word 5-8 ----------*/
 	volatile uint16_t offset_packetstatus[8];
