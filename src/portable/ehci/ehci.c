@@ -283,7 +283,7 @@ static void init_periodic_list(uint8_t rhport) {
   ehci_link_t * const head_8ms = list_get_period_head(rhport, 8); //(ehci_link_t *) &ehci_data.period_head_arr[3];
 
   for (uint32_t i = 0; i < FRAMELIST_SIZE; i++) {
-    framelist[i].address = (uint32_t) head_1ms;
+    framelist[i].address = (uintptr_t) head_1ms;
     framelist[i].type = EHCI_QTYPE_QHD;
   }
 
@@ -505,7 +505,7 @@ bool hcd_edpt_abort_xfer(uint8_t rhport, uint8_t dev_addr, uint8_t ep_addr) {
 
   // TODO ISO not supported yet
   ehci_qhd_t* qhd = qhd_get_from_addr(dev_addr, ep_addr);
-  ehci_qtd_t * volatile qtd = qhd->attached_qtd;
+  ehci_qtd_t * volatile qtd = (ehci_qtd_t * volatile) (uintptr_t) qhd->attached_qtd;
   TU_VERIFY(qtd != NULL); // no queued transfer
 
   hcd_dcache_invalidate(qtd, sizeof(ehci_qtd_t));
@@ -582,7 +582,7 @@ void qhd_xfer_complete_isr(ehci_qhd_t * qhd) {
   volatile ehci_qtd_t *qtd_overlay = &qhd->qtd_overlay;
 
   // process non-active (completed) QHD with attached (scheduled) TD
-  if ( !qtd_overlay->active && qhd->attached_qtd != NULL ) {
+  if ( !qtd_overlay->active && qhd->attached_qtd != (uintptr_t) NULL ) {
     xfer_result_t xfer_result;
 
     if ( qtd_overlay->halted ) {
@@ -903,19 +903,19 @@ static void qhd_init(ehci_qhd_t *p_qhd, uint8_t dev_addr, tusb_desc_endpoint_t c
 
 // Attach a TD to queue head
 static void qhd_attach_qtd(ehci_qhd_t *qhd, ehci_qtd_t *qtd) {
-  qhd->attached_qtd = qtd;
+  qhd->attached_qtd = (uintptr_t) qtd;
   qhd->attached_buffer = qtd->buffer[0];
 
   // clean and invalidate cache before physically write
   hcd_dcache_clean_invalidate(qtd, sizeof(ehci_qtd_t));
 
-  qhd->qtd_overlay.next.address = (uint32_t) qtd;
+  qhd->qtd_overlay.next.address = (uintptr_t) qtd;
   hcd_dcache_clean_invalidate(qhd, sizeof(ehci_qhd_t));
 }
 
 // Remove an attached TD from queue head
 static void qhd_remove_qtd(ehci_qhd_t *qhd) {
-  ehci_qtd_t * volatile qtd = qhd->attached_qtd;
+  ehci_qtd_t * volatile qtd = (ehci_qtd_t * volatile) (uintptr_t) qhd->attached_qtd;
 
   qhd->attached_qtd = NULL;
   qhd->attached_buffer = 0;

@@ -161,14 +161,14 @@ TU_ATTR_ALWAYS_INLINE static inline uint32_t tu_align(uint32_t value, uint32_t a
   return value & ((uint32_t) ~(alignment-1));
 }
 
-TU_ATTR_ALWAYS_INLINE static inline uint32_t tu_align4  (uint32_t value) { return (value & 0xFFFFFFFCUL); }
-TU_ATTR_ALWAYS_INLINE static inline uint32_t tu_align8  (uint32_t value) { return (value & 0xFFFFFFF8UL); }
-TU_ATTR_ALWAYS_INLINE static inline uint32_t tu_align16 (uint32_t value) { return (value & 0xFFFFFFF0UL); }
-TU_ATTR_ALWAYS_INLINE static inline uint32_t tu_align32 (uint32_t value) { return (value & 0xFFFFFFE0UL); }
-TU_ATTR_ALWAYS_INLINE static inline uint32_t tu_align4k (uint32_t value) { return (value & 0xFFFFF000UL); }
-TU_ATTR_ALWAYS_INLINE static inline uint32_t tu_offset4k(uint32_t value) { return (value & 0xFFFUL); }
+TU_ATTR_ALWAYS_INLINE static inline uintptr_t tu_align4  (uintptr_t value) { return (value & 0xFFFFFFFCUL); }
+TU_ATTR_ALWAYS_INLINE static inline uintptr_t tu_align8  (uintptr_t value) { return (value & 0xFFFFFFF8UL); }
+TU_ATTR_ALWAYS_INLINE static inline uintptr_t tu_align16 (uintptr_t value) { return (value & 0xFFFFFFF0UL); }
+TU_ATTR_ALWAYS_INLINE static inline uintptr_t tu_align32 (uintptr_t value) { return (value & 0xFFFFFFE0UL); }
+TU_ATTR_ALWAYS_INLINE static inline uintptr_t tu_align4k (uintptr_t value) { return (value & 0xFFFFF000UL); }
+TU_ATTR_ALWAYS_INLINE static inline uintptr_t tu_offset4k(uintptr_t value) { return (value & 0xFFFUL); }
 
-TU_ATTR_ALWAYS_INLINE static inline bool tu_is_aligned32(uint32_t value) { return (value & 0x1FUL) == 0; }
+TU_ATTR_ALWAYS_INLINE static inline bool tu_is_aligned32(uintptr_t value) { return (value & 0x1FUL) == 0; }
 TU_ATTR_ALWAYS_INLINE static inline bool tu_is_aligned64(uint64_t value) { return (value & 0x3FUL) == 0; }
 
 //------------- Mathematics -------------//
