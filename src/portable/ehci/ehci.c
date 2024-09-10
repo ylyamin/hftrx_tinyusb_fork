@@ -601,7 +601,7 @@ void qhd_xfer_complete_isr(ehci_qhd_t * qhd) {
       xfer_result = XFER_RESULT_SUCCESS;
     }
 
-    ehci_qtd_t * volatile qtd = qhd->attached_qtd;
+    ehci_qtd_t * const qtd = (ehci_qtd_t *) (uintptr_t) qhd->attached_qtd;
     hcd_dcache_invalidate(qtd, sizeof(ehci_qtd_t)); // HC may have written back TD
 
     uint8_t const dir = (qtd->pid == EHCI_PID_IN) ? 1 : 0;
@@ -887,7 +887,7 @@ static void qhd_init(ehci_qhd_t *p_qhd, uint8_t dev_addr, tusb_desc_endpoint_t c
   //------------- HCD Management Data -------------//
   p_qhd->used         = 1;
   p_qhd->removing     = 0;
-  p_qhd->attached_qtd = NULL;
+  p_qhd->attached_qtd = 0;// NULL;
   p_qhd->pid = tu_edpt_dir(ep_desc->bEndpointAddress) ? EHCI_PID_IN : EHCI_PID_OUT; // PID for TD under this endpoint
 
   //------------- active, but no TD list -------------//
@@ -917,7 +917,7 @@ static void qhd_attach_qtd(ehci_qhd_t *qhd, ehci_qtd_t *qtd) {
 static void qhd_remove_qtd(ehci_qhd_t *qhd) {
   ehci_qtd_t * volatile qtd = (ehci_qtd_t * volatile) (uintptr_t) qhd->attached_qtd;
 
-  qhd->attached_qtd = NULL;
+  qhd->attached_qtd = 0;//NULL;
   qhd->attached_buffer = 0;
   hcd_dcache_clean(qhd, sizeof(ehci_qhd_t));
 
