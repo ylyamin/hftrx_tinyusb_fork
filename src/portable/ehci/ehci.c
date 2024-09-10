@@ -412,7 +412,8 @@ bool hcd_edpt_open(uint8_t rhport, uint8_t dev_addr, tusb_desc_endpoint_t const 
 
     case TUSB_XFER_INTERRUPT:
       //list_head = list_get_period_head(rhport, TU_MIN(p_qhd->interval_ms, 8));
-      list_head = list_get_period_head(rhport, 8);
+      //list_head = list_get_period_head(rhport, 8);
+      list_head = list_get_period_head(rhport, TU_MIN(p_qhd->interval_ms, 4));
     break;
 
     case TUSB_XFER_ISOCHRONOUS:
