@@ -4,6 +4,7 @@ from building import *
 cwd     = GetCurrentDir()
 src     = Split("""
 ../../src/tusb.c
+../../src/typec/usbc.c
 ../../src/common/tusb_fifo.c
 ./tusb_rt_thread_port.c
 """)
@@ -45,6 +46,12 @@ if GetDepend(["PKG_TINYUSB_HOST_ENABLE"]):
         src += ["../../src/portable/renesas/rusb2/hcd_rusb2.c",
                 "../../src/portable/renesas/rusb2/rusb2_common.c"]
 
+    if GetDepend(["ARCH_SUN20IW1"]):
+        src += ["../../src/portable/ehci/ehci.c",
+                "../../src/portable/ohci/ohci.c",
+                "../../src/class/cdc/cdc_host.c",
+                "../../src/class/hid/hid_host.c",
+                "../../src/class/msc/msc_host.c",]
 
 if rtconfig.PLATFORM == 'gcc' or rtconfig.PLATFORM == 'armclang': # GCC or Keil AC6
     LOCAL_CFLAGS += ' -std=c99'

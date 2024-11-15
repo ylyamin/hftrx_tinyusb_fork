@@ -177,6 +177,7 @@
 
 // Allwinner
 #define OPT_MCU_F1C100S          2100 ///< Allwinner F1C100s family
+#define OPT_MCU_SUN20IW1         2101 ///< Allwinner D1 family
 
 // WCH
 #define OPT_MCU_CH32V307         2200 ///< WCH CH32V307

@@ -50,7 +50,7 @@
   #define FRAMELIST_SIZE_BIT_VALUE      7u
   #define FRAMELIST_SIZE_USBCMD_VALUE   (((FRAMELIST_SIZE_BIT_VALUE &  3) << EHCI_USBCMD_FRAMELIST_SIZE_SHIFT) | \
                                          ((FRAMELIST_SIZE_BIT_VALUE >> 2) << EHCI_USBCMD_CHIPIDEA_FRAMELIST_SIZE_MSB_SHIFT))
-#elif (CFG_TUSB_MCU == OPT_MCU_F1C100S)
+#elif (CFG_TUSB_MCU == OPT_MCU_F1C100S | CFG_TUSB_MCU == OPT_MCU_SUN20IW1)
   // STD EHCI: 1024 elements
   #define FRAMELIST_SIZE_BIT_VALUE      0u
   #define FRAMELIST_SIZE_USBCMD_VALUE   ((FRAMELIST_SIZE_BIT_VALUE &  3) << EHCI_USBCMD_FRAMELIST_SIZE_SHIFT)
@@ -234,7 +234,7 @@ bool hcd_port_connect_status(uint8_t rhport)
 tusb_speed_t hcd_port_speed_get(uint8_t rhport)
 {
   (void) rhport;
-#if (CFG_TUSB_MCU == OPT_MCU_F1C100S)
+#if (CFG_TUSB_MCU == OPT_MCU_F1C100S | CFG_TUSB_MCU == OPT_MCU_SUN20IW1)
   return TUSB_SPEED_HIGH;	// STD EHCI: HS only
 #else
   return (tusb_speed_t) ehci_data.regs->portsc_bm.nxp_port_speed; // NXP specific port speed

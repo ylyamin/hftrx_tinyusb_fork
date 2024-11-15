@@ -39,7 +39,8 @@ extern "C" {
 // TASK API
 //--------------------------------------------------------------------+
 TU_ATTR_ALWAYS_INLINE static inline void osal_task_delay(uint32_t msec) {
-  rt_thread_mdelay(msec);
+  //rt_thread_mdelay(msec);
+  rt_hw_us_delay(msec*1000);
 }
 
 //--------------------------------------------------------------------+

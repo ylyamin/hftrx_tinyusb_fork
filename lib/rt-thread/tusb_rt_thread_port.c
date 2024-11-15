@@ -23,7 +23,8 @@
  *
  * This file is part of the TinyUSB stack.
  */
-#ifdef __RTTHREAD__
+#include <rtconfig.h>
+#ifdef PKG_USING_TINYUSB
 #include <rtthread.h>
 
 #define  DBG_TAG  "TinyUSB"
@@ -53,7 +54,7 @@ static void tusb_thread_entry(void *parameter)
     }
 }
 
-static int init_tinyusb(void)
+int init_tinyusb(void)
 {
     rt_thread_t tid;
 
@@ -82,5 +83,5 @@ static int init_tinyusb(void)
 
     return 0;
 }
-INIT_APP_EXPORT(init_tinyusb);
+//INIT_APP_EXPORT(init_tinyusb);
 #endif /*__RTTHREAD__*/
