@@ -139,7 +139,7 @@ typedef osal_queue_def_t* osal_queue_t;
     .mdef = {.count = 1 } \
   }
 
-//#define OSAL_QUEUE_WITH_MUTEX 1
+#define OSAL_QUEUE_WITH_MUTEX 1
 
 // lock queue by disable USB interrupt
 TU_ATTR_ALWAYS_INLINE static inline void _osal_q_lock(osal_queue_t qhdl)
