@@ -41,7 +41,7 @@
 #include "ohci.h"
 
 // TODO remove
-#include "chip.h"
+//#include "chip.h"
 
 //--------------------------------------------------------------------+
 // MACRO CONSTANT TYPEDEF
